@@ -27,9 +27,10 @@ function trend(history, number) {
   const den = xs.reduce((a, x) => a + (x - xm) ** 2, 0);
   if (den < .0001) return null;
   const slope = xs.reduce((a, x, i) => a + (x - xm) * (ys[i] - ym), 0) / den;
-  const last = points.at(-1), end = Math.min(100, last.counted + Math.min(8, (last.counted - points[0].counted) / 2));
+  const last = points.at(-1), end = 100;
   if (end <= last.counted) return null;
-  return { start: last.counted, y: last.candidates[number].percentage, end, projected: last.candidates[number].percentage + slope * (end - last.counted) };
+  return { start: last.counted, y: last.candidates[number].percentage, end,
+    projected: clamp(last.candidates[number].percentage + slope * (end - last.counted), 0, 100) };
 }
 
 function draw() {
@@ -39,6 +40,13 @@ function draw() {
   if (g.w <= 0) return;
   const visible = history.filter(p => p.counted >= state.range[0] && p.counted <= state.range[1]);
   const vals = [...Object.keys(colors).map(n => firstRound.candidates[n].percentage), ...visible.flatMap(p => Object.keys(colors).map(n => p.candidates[n].percentage))];
+  for (const n of Object.keys(colors)) {
+    const t = trend(history, n);
+    if (t && state.range[1] > t.start) {
+      const edge = Math.min(state.range[1], t.end);
+      vals.push(t.y + (t.projected - t.y) * (edge - t.start) / (t.end - t.start));
+    }
+  }
   const yMin = Math.max(0, Math.floor((Math.min(...vals) - 2) / 2) * 2);
   const yMax = Math.min(100, Math.ceil((Math.max(...vals) + 2) / 2) * 2);
   const yp = y => g.bottom - (y - yMin) / (yMax - yMin || 1) * (g.bottom - g.top);
