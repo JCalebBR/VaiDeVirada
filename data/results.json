@@ -1,0 +1,61 @@
+{
+  "source": "Tribunal Superior Eleitoral",
+  "firstRound": {
+    "id": "2837531",
+    "at": "2026-10-05T12:51:05-03:00",
+    "counted": 100.0,
+    "validVotes": 119300788,
+    "candidates": {
+      "22": {
+        "name": "Flavio Bolsonaro",
+        "votes": 56104503,
+        "percentage": 47.027772356
+      },
+      "13": {
+        "name": "Lula",
+        "votes": 53879538,
+        "percentage": 45.162767911
+      }
+    }
+  },
+  "history": [
+    {
+      "id": "4061881",
+      "at": "2026-10-25T20:19:04-03:00",
+      "counted": 41.580136525,
+      "validVotes": 51247657,
+      "candidates": {
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 25711827,
+          "percentage": 50.17171224
+        },
+        "13": {
+          "name": "Lula",
+          "votes": 25535830,
+          "percentage": 49.82828776
+        }
+      }
+    },
+    {
+      "id": "4071024",
+      "at": "2026-10-25T20:21:14-03:00",
+      "counted": 43.870180752,
+      "validVotes": 54070192,
+      "candidates": {
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 27108960,
+          "percentage": 50.136607616
+        },
+        "13": {
+          "name": "Lula",
+          "votes": 26961232,
+          "percentage": 49.863392384
+        }
+      }
+    }
+  ],
+  "round2Url": "https://resultados.tse.jus.br/oficial/ele2026/6258/dados/br/br-c0001-e006258-u.json",
+  "round1Url": "https://resultados.tse.jus.br/oficial/ele2026/6257/dados/br/br-c0001-e006257-u.json"
+}
