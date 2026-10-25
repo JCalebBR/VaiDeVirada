@@ -5,13 +5,13 @@ const { join } = require('node:path');
 const { runInNewContext, createContext, runInContext } = require('node:vm');
 
 const code = readFileSync(join(__dirname, '../app.js'), 'utf8');
-const { trend, projectionAt, firstRoundAt } = runInNewContext(
-  `${code.split('\nfunction draw()')[0]}\n({ trend, projectionAt, firstRoundAt });`,
+const { trend, projectionAt, firstRoundAt, firstRoundDetailsAt } = runInNewContext(
+  `${code.split('\nfunction draw()')[0]}\n({ trend, projectionAt, firstRoundAt, firstRoundDetailsAt });`,
 );
 
 test('recent trend reaches the 100% mark', () => {
   const history = [20, 40, 60].map((counted, index) => ({
-    counted,
+    counted, validVotes: counted * 1000,
     candidates: { '22': { percentage: 48 + index }, '13': { percentage: 52 - index } },
   }));
   const projected = trend(history, '22');
@@ -27,23 +27,28 @@ test('does not extrapolate from too few observations', () => {
 
 test('projection hover interpolates values along both trend lines', () => {
   const history = [20, 40, 60].map((counted, index) => ({
-    counted,
+    counted, validVotes: counted * 1000,
     candidates: { '22': { percentage: 48 + index }, '13': { percentage: 52 - index } },
   }));
   assert.equal(projectionAt(history, 60), null);
   assert.equal(projectionAt(history, 101), null);
   assert.equal(projectionAt(history, 80).percentages['22'], 51);
   assert.equal(projectionAt(history, 80).percentages['13'], 49);
+  assert.equal(projectionAt(history, 80).votes['22'], 40800);
+  assert.equal(projectionAt(history, 80).votes['13'], 39200);
 });
 
 test('first-round hover interpolates the historical curve', () => {
   const history = [10, 30].map((counted, index) => ({
     counted,
-    candidates: { '22': { percentage: 45 + index * 2 }, '13': { percentage: 40 + index * 3 } },
+    candidates: { '22': { percentage: 45 + index * 2, votes: 100 + index * 200 },
+      '13': { percentage: 40 + index * 3, votes: 90 + index * 180 } },
   }));
   assert.equal(firstRoundAt(history, 0), null);
   assert.equal(firstRoundAt(history, 20)['22'], 46);
   assert.equal(firstRoundAt(history, 20)['13'], 41.5);
+  assert.equal(firstRoundDetailsAt(history, 20)['22'].votes, 200);
+  assert.equal(firstRoundDetailsAt(history, 20)['13'].votes, 180);
 });
 
 test('pointer in projected region shows forecast instead of snapping to last actual point', () => {
@@ -51,7 +56,9 @@ test('pointer in projected region shows forecast instead of snapping to last act
   const element = id => {
     if (!elements.has(id)) elements.set(id, {
       clientWidth: 800, clientHeight: 400, offsetWidth: 240, style: {},
-      addEventListener() {}, setAttribute() {}, getBoundingClientRect: () => ({ left: 0 }),
+      listeners: {}, classList: { toggle() {} },
+      addEventListener(event, handler) { this.listeners[event] = handler; },
+      setAttribute() {}, getBoundingClientRect: () => ({ left: 0 }),
     });
     return elements.get(id);
   };
@@ -65,20 +72,38 @@ test('pointer in projected region shows forecast instead of snapping to last act
   runInContext(code, context);
   const history = [20, 40, 60].map((counted, index) => ({
     id: String(index), at: '2026-10-25T20:00:00-03:00', counted, validVotes: 1000,
-    candidates: { '22': { percentage: 48 + index }, '13': { percentage: 52 - index } },
+    candidates: { '22': { percentage: 48 + index, votes: 500 + index * 100 },
+      '13': { percentage: 52 - index, votes: 500 + index * 100 } },
   }));
   context.historyFixture = history;
   runInContext(`state.data = {
     history: historyFixture,
     firstRound: { candidates: { '22': { percentage: 47 }, '13': { percentage: 45 } } }
   }; state.firstHistory = [
-    { counted: 10, candidates: { '22': { percentage: 48 }, '13': { percentage: 42 } } },
-    { counted: 100, candidates: { '22': { percentage: 47 }, '13': { percentage: 45 } } }
+    { counted: 10, candidates: { '22': { percentage: 48, votes: 100 }, '13': { percentage: 42, votes: 90 } } },
+    { counted: 100, candidates: { '22': { percentage: 47, votes: 1000 }, '13': { percentage: 45, votes: 900 } } }
   ]; inspect(geometry().xp(80));`, context);
   assert.match(element('tooltip').innerHTML, /PROJEÇÃO · 80,00%/);
   assert.match(element('tooltip').innerHTML, /Flávio Bolsonaro: 51,00%/);
   assert.match(element('tooltip').innerHTML, /Lula: 49,00%/);
+  assert.match(element('tooltip').innerHTML, /votos estimados/i);
   assert.match(element('tooltip').innerHTML, /1º TURNO/);
   assert.equal(element('tooltip').hidden, false);
   assert.equal(runInContext('state.hover', context), null);
+  assert.equal(element('first-panel').hidden, false);
+  assert.match(element('first-chart').innerHTML, /stroke="#1659a7"/);
+  assert.doesNotMatch(element('chart').innerHTML, /stroke-dasharray="7 5"/);
+  element('first-chart-wrap').listeners.pointermove({
+    clientX: runInContext('geometry(document.getElementById("first-chart-wrap")).xp(80)', context),
+  });
+  assert.match(element('first-tooltip').innerHTML, /1º TURNO · 80,00%/);
+  assert.match(element('first-tooltip').innerHTML, /800 votos/);
+  runInContext('inspect(geometry().xp(40))', context);
+  assert.match(element('tooltip').innerHTML, /Flávio Bolsonaro: 49,00% · 600 votos/);
+  assert.match(element('tooltip').innerHTML, /Lula: 51,00% · 600 votos/);
+  runInContext("setFirstMode('overlay')", context);
+  assert.equal(element('first-panel').hidden, true);
+  assert.match(element('chart').innerHTML, /stroke-dasharray="7 5"/);
+  runInContext("setFirstMode('separate')", context);
+  assert.equal(element('first-panel').hidden, false);
 });
