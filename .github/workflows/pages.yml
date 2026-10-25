@@ -45,6 +45,7 @@ jobs:
           mkdir -p dist/data
           cp index.html style.css app.js dist/
           cp data/results.json dist/data/
+          cp data/first-round-history.json dist/data/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

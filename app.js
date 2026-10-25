@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const state = { data: null, scale: 'linear', range: [0, 100], hover: null, dragging: false, live: false };
+const state = { data: null, firstHistory: [], scale: 'linear', range: [0, 100], hover: null, forecastCounted: null, dragging: false, live: false };
 const colors = { '22': '#1659a7', '13': '#e12f34' };
 const formatPct = (n, digits = 2) => `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n)}%`;
 const formatInt = (n) => new Intl.NumberFormat('pt-BR').format(n);
@@ -33,13 +33,36 @@ function trend(history, number) {
     projected: clamp(last.candidates[number].percentage + slope * (end - last.counted), 0, 100) };
 }
 
+function projectionAt(history, counted) {
+  if (!history.length || counted <= history.at(-1).counted || counted > 100) return null;
+  const result = { counted, percentages: {} };
+  for (const n of Object.keys(colors)) {
+    const t = trend(history, n);
+    if (!t) return null;
+    result.percentages[n] = t.y + (t.projected - t.y) * (counted - t.start) / (t.end - t.start);
+  }
+  return result;
+}
+
+function firstRoundAt(history, counted) {
+  if (!history.length || counted < history[0].counted || counted > history.at(-1).counted) return null;
+  const upper = history.findIndex(p => p.counted >= counted);
+  const end = history[upper], start = history[Math.max(0, upper - 1)];
+  const ratio = end.counted === start.counted ? 0 : (counted - start.counted) / (end.counted - start.counted);
+  return Object.fromEntries(Object.keys(colors).map(n =>
+    [n, start.candidates[n].percentage + (end.candidates[n].percentage - start.candidates[n].percentage) * ratio]));
+}
+
 function draw() {
   if (!state.data) return;
   const { firstRound, history } = state.data;
   const g = geometry();
   if (g.w <= 0) return;
   const visible = history.filter(p => p.counted >= state.range[0] && p.counted <= state.range[1]);
-  const vals = [...Object.keys(colors).map(n => firstRound.candidates[n].percentage), ...visible.flatMap(p => Object.keys(colors).map(n => p.candidates[n].percentage))];
+  const firstVisible = state.firstHistory.filter(p => p.counted >= state.range[0] && p.counted <= state.range[1]);
+  const vals = [...Object.keys(colors).map(n => firstRound.candidates[n].percentage),
+    ...visible.flatMap(p => Object.keys(colors).map(n => p.candidates[n].percentage)),
+    ...firstVisible.flatMap(p => Object.keys(colors).map(n => p.candidates[n].percentage))];
   for (const n of Object.keys(colors)) {
     const t = trend(history, n);
     if (t && state.range[1] > t.start) {
@@ -65,8 +88,11 @@ function draw() {
   svg += `<line x1="${g.left}" x2="${g.right}" y1="${g.bottom}" y2="${g.bottom}" stroke="#1c2526"/>`;
   svg += '<g clip-path="url(#plot-clip)">';
   for (const n of Object.keys(colors)) {
-    const color = colors[n], reference = firstRound.candidates[n].percentage;
-    svg += `<line x1="${g.left}" x2="${g.right}" y1="${yp(reference)}" y2="${yp(reference)}" stroke="${color}" stroke-width="2" stroke-dasharray="7 5" opacity=".8"/>`;
+    const points = state.firstHistory.map(p => `${g.xp(p.counted)},${yp(p.candidates[n].percentage)}`).join(' ');
+    if (points) svg += `<polyline points="${points}" fill="none" stroke="${colors[n]}" stroke-width="2" stroke-dasharray="7 5" opacity=".8" stroke-linejoin="round"/>`;
+  }
+  for (const n of Object.keys(colors)) {
+    const color = colors[n];
     const points = history.map(p => `${g.xp(p.counted)},${yp(p.candidates[n].percentage)}`).join(' ');
     if (history.length > 1) svg += `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>`;
     const t = trend(history, n);
@@ -74,10 +100,22 @@ function draw() {
     const last = history.at(-1);
     svg += `<circle cx="${g.xp(last.counted)}" cy="${yp(last.candidates[n].percentage)}" r="5" fill="${color}" stroke="white" stroke-width="2"/>`;
   }
-  if (state.hover !== null && history[state.hover]) {
+  const forecast = state.forecastCounted === null ? null : projectionAt(history, state.forecastCounted);
+  let inspectedCounted = null;
+  if (forecast && forecast.counted >= state.range[0] && forecast.counted <= state.range[1]) {
+    const x = g.xp(forecast.counted);
+    inspectedCounted = forecast.counted;
+    svg += `<line x1="${x}" x2="${x}" y1="${g.top}" y2="${g.bottom}" stroke="#1c2526" stroke-dasharray="3 4" opacity=".75"/>`;
+    for (const n of Object.keys(colors)) svg += `<circle cx="${x}" cy="${yp(forecast.percentages[n])}" r="6" fill="${colors[n]}" stroke="white" stroke-width="2"/>`;
+  } else if (state.hover !== null && history[state.hover]) {
     const p = history[state.hover], x = g.xp(p.counted);
+    inspectedCounted = p.counted;
     svg += `<line x1="${x}" x2="${x}" y1="${g.top}" y2="${g.bottom}" stroke="#1c2526" stroke-dasharray="3 4" opacity=".75"/>`;
     for (const n of Object.keys(colors)) svg += `<circle cx="${x}" cy="${yp(p.candidates[n].percentage)}" r="6" fill="${colors[n]}" stroke="white" stroke-width="2"/>`;
+  }
+  const comparison = inspectedCounted === null ? null : firstRoundAt(state.firstHistory, inspectedCounted);
+  if (comparison) for (const n of Object.keys(colors)) {
+    svg += `<circle cx="${g.xp(inspectedCounted)}" cy="${yp(comparison[n])}" r="5" fill="white" stroke="${colors[n]}" stroke-width="2"/>`;
   }
   svg += '</g>';
   $('chart').setAttribute('viewBox', `0 0 ${g.w} ${g.h}`);
@@ -87,11 +125,24 @@ function draw() {
 
 function renderTooltip(g) {
   const tip = $('tooltip');
+  const firstComparison = counted => {
+    const values = firstRoundAt(state.firstHistory, counted);
+    return values ? `<br><span class="tooltip-divider">1º TURNO · MESMO % DE URNAS (APROX.)</span><br><span class="blue-text">Flávio: ${formatPct(values['22'])}</span> · <span class="red-text">Lula: ${formatPct(values['13'])}</span>` : '';
+  };
+  const forecast = state.forecastCounted === null ? null : projectionAt(state.data.history, state.forecastCounted);
+  if (forecast && forecast.counted >= state.range[0] && forecast.counted <= state.range[1]) {
+    const x = g.xp(forecast.counted);
+    tip.innerHTML = `<strong>PROJEÇÃO · ${formatPct(forecast.counted)} das urnas</strong><span class="blue-text">Flávio Bolsonaro: ${formatPct(forecast.percentages['22'])}</span><br><span class="red-text">Lula: ${formatPct(forecast.percentages['13'])}</span><br>Extrapolação dos últimos registros · não é resultado oficial${firstComparison(forecast.counted)}`;
+    tip.hidden = false;
+    tip.style.left = `${clamp(x + 13, 0, g.w - tip.offsetWidth)}px`;
+    tip.style.top = '25px';
+    return;
+  }
   const p = state.data?.history[state.hover];
   if (!p) { tip.hidden = true; return; }
   const x = g.xp(p.counted);
   if (x < g.left || x > g.right) { tip.hidden = true; return; }
-  tip.innerHTML = `<strong>${dateFmt.format(new Date(p.at))} · ${formatPct(p.counted)} das urnas</strong><span class="blue-text">Flávio Bolsonaro: ${formatPct(p.candidates['22'].percentage)}</span><br><span class="red-text">Lula: ${formatPct(p.candidates['13'].percentage)}</span><br>${formatInt(p.validVotes)} votos válidos<br>${p.origin ? 'Captura arquivada do TSE (horário da captura)' : 'Totalização oficial do TSE'}`;
+  tip.innerHTML = `<strong>${dateFmt.format(new Date(p.at))} · ${formatPct(p.counted)} das urnas</strong><span class="blue-text">Flávio Bolsonaro: ${formatPct(p.candidates['22'].percentage)}</span><br><span class="red-text">Lula: ${formatPct(p.candidates['13'].percentage)}</span><br>${formatInt(p.validVotes)} votos válidos<br>${p.origin ? 'Captura arquivada do TSE (horário da captura)' : 'Totalização oficial do TSE'}${firstComparison(p.counted)}`;
   tip.hidden = false;
   const w = $('chart-wrap').clientWidth;
   tip.style.left = `${clamp(x + 13, 0, w - tip.offsetWidth)}px`;
@@ -100,7 +151,15 @@ function renderTooltip(g) {
 
 function inspect(clientX) {
   const g = geometry(), x = clientX - $('chart-wrap').getBoundingClientRect().left;
-  if (x < g.left || x > g.right) { state.hover = null; draw(); return; }
+  if (x < g.left || x > g.right) { state.hover = null; state.forecastCounted = null; draw(); return; }
+  const forecast = projectionAt(state.data.history, clamp(g.unpx(x), 0, 100));
+  if (forecast) {
+    state.forecastCounted = forecast.counted;
+    state.hover = null;
+    draw();
+    return;
+  }
+  state.forecastCounted = null;
   const visible = state.data.history.map((p, index) => ({ index, distance: Math.abs(g.xp(p.counted) - x) })).filter(p => g.xp(state.data.history[p.index].counted) >= g.left && g.xp(state.data.history[p.index].counted) <= g.right);
   state.hover = visible.length ? visible.reduce((a, b) => a.distance < b.distance ? a : b).index : null;
   draw();
@@ -187,11 +246,27 @@ async function load() {
     }
     state.data = data;
     updateUI(data);
+    if (!state.firstHistory.length) await loadFirstRound();
     await loadLive();
   } catch (error) {
     $('status-text').textContent = state.data ? 'FALHA AO ATUALIZAR · EXIBINDO ÚLTIMO REGISTRO' : 'DADOS INDISPONÍVEIS';
     $('updated').textContent = 'Não foi possível obter os dados. Tente recarregar a página.';
     console.error('Falha ao carregar apuração:', error);
+  }
+}
+
+async function loadFirstRound() {
+  try {
+    const response = await fetch('./data/first-round-history.json');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const archive = await response.json();
+    if (!Array.isArray(archive.history) || archive.history.at(-1)?.counted !== 100) throw new Error('Série incompleta');
+    state.firstHistory = archive.history;
+    $('first-status').textContent = '';
+    draw();
+  } catch (error) {
+    $('first-status').textContent = 'Série do 1º turno indisponível no momento; valores finais permanecem abaixo do gráfico.';
+    console.warn('Falha ao carregar série do 1º turno:', error);
   }
 }
 
@@ -207,7 +282,7 @@ function setScale(scale) {
 }
 $('zoom-in').addEventListener('click', () => zoom(.6));
 $('zoom-out').addEventListener('click', () => zoom(1 / .6));
-$('reset').addEventListener('click', () => { state.range = [0, 100]; state.hover = null; draw(); });
+$('reset').addEventListener('click', () => { state.range = [0, 100]; state.hover = null; state.forecastCounted = null; draw(); });
 $('chart-wrap').addEventListener('wheel', e => { if (!state.data) return; e.preventDefault(); const g = geometry(); zoom(e.deltaY < 0 ? .8 : 1.25, clamp((e.clientX - $('chart-wrap').getBoundingClientRect().left - g.left) / (g.right - g.left), 0, 1)); }, { passive: false });
 $('chart-wrap').addEventListener('pointermove', e => {
   if (!state.data) return;
@@ -216,13 +291,19 @@ $('chart-wrap').addEventListener('pointermove', e => {
     const width = toX(state.range[1]) - toX(state.range[0]);
     const start = clamp(state.dragging.start - dx / (g.right - g.left) * width, 0, toX(100) - width);
     state.range = [fromX(start), fromX(start + width)];
-    state.hover = null; draw();
+    state.hover = null; state.forecastCounted = null; draw();
   } else inspect(e.clientX);
 });
 $('chart-wrap').addEventListener('pointerdown', e => { if (!state.data) return; state.dragging = { x: e.clientX, start: toX(state.range[0]) }; $('chart-wrap').setPointerCapture(e.pointerId); inspect(e.clientX); });
 $('chart-wrap').addEventListener('pointerup', () => { state.dragging = false; });
 $('chart-wrap').addEventListener('pointercancel', () => { state.dragging = false; });
-$('chart-wrap').addEventListener('pointerleave', () => { if (!state.dragging) { state.hover = null; draw(); } });
+$('chart-wrap').addEventListener('pointerleave', e => {
+  if (!state.dragging && e.pointerType !== 'touch') {
+    state.hover = null;
+    state.forecastCounted = null;
+    draw();
+  }
+});
 window.addEventListener('resize', draw);
 load();
 setInterval(load, 90_000);

@@ -5,6 +5,17 @@ from scripts.update import extract, merge
 
 
 class ElectionDataTest(unittest.TestCase):
+    def test_first_round_curve_ends_at_official_result(self):
+        data_dir = Path(__file__).resolve().parents[1] / 'data'
+        data = json.loads((data_dir / 'first-round-history.json').read_text())['history']
+        official = json.loads((data_dir / 'results.json').read_text())['firstRound']
+        self.assertGreater(len(data), 100)
+        self.assertLess(data[0]['counted'], 2)
+        self.assertTrue(all(a['counted'] < b['counted'] for a, b in zip(data, data[1:])))
+        for n in ('13', '22'):
+            self.assertEqual(data[-1]['candidates'][n]['votes'], official['candidates'][n]['votes'])
+            self.assertEqual(data[-1]['candidates'][n]['percentage'], official['candidates'][n]['percentage'])
+
     def test_archive_is_attributed_and_verified(self):
         from scripts.import_archive import archived_points
         raw = json.loads((Path(__file__).resolve().parents[1] / 'data/archive-2026-10-25.json').read_text())
