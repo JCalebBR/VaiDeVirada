@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const state = { data: null, scale: 'linear', range: [0, 100], hover: null, dragging: false };
+const state = { data: null, scale: 'linear', range: [0, 100], hover: null, dragging: false, live: false };
 const colors = { '22': '#1659a7', '13': '#e12f34' };
 const formatPct = (n, digits = 2) => `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n)}%`;
 const formatInt = (n) => new Intl.NumberFormat('pt-BR').format(n);
@@ -58,7 +58,7 @@ function draw() {
   svg += '<g clip-path="url(#plot-clip)">';
   for (const n of Object.keys(colors)) {
     const color = colors[n], reference = firstRound.candidates[n].percentage;
-    svg += `<line x1="${g.left}" x2="${g.right}" y1="${yp(reference)}" y2="${yp(reference)}" stroke="${color}" stroke-width="1.5" stroke-dasharray="6 5" opacity=".65"/>`;
+    svg += `<line x1="${g.left}" x2="${g.right}" y1="${yp(reference)}" y2="${yp(reference)}" stroke="${color}" stroke-width="2" stroke-dasharray="7 5" opacity=".8"/>`;
     const points = history.map(p => `${g.xp(p.counted)},${yp(p.candidates[n].percentage)}`).join(' ');
     if (history.length > 1) svg += `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>`;
     const t = trend(history, n);
@@ -83,7 +83,7 @@ function renderTooltip(g) {
   if (!p) { tip.hidden = true; return; }
   const x = g.xp(p.counted);
   if (x < g.left || x > g.right) { tip.hidden = true; return; }
-  tip.innerHTML = `<strong>${dateFmt.format(new Date(p.at))} · ${formatPct(p.counted)} das urnas</strong><span class="blue-text">Flávio Bolsonaro: ${formatPct(p.candidates['22'].percentage)}</span><br><span class="red-text">Lula: ${formatPct(p.candidates['13'].percentage)}</span><br>${formatInt(p.validVotes)} votos válidos`;
+  tip.innerHTML = `<strong>${dateFmt.format(new Date(p.at))} · ${formatPct(p.counted)} das urnas</strong><span class="blue-text">Flávio Bolsonaro: ${formatPct(p.candidates['22'].percentage)}</span><br><span class="red-text">Lula: ${formatPct(p.candidates['13'].percentage)}</span><br>${formatInt(p.validVotes)} votos válidos<br>${p.origin ? 'Captura arquivada do TSE (horário da captura)' : 'Totalização oficial do TSE'}`;
   tip.hidden = false;
   const w = $('chart-wrap').clientWidth;
   tip.style.left = `${clamp(x + 13, 0, w - tip.offsetWidth)}px`;
@@ -113,13 +113,57 @@ function updateUI(data) {
   for (const n of Object.keys(colors)) {
     $(`score-${n}`).textContent = formatPct(last.candidates[n].percentage);
     $(`votes-${n}`).textContent = `${formatInt(last.candidates[n].votes)} votos · 1º turno: ${formatPct(data.firstRound.candidates[n].percentage)}`;
+    $(`reference-${n}`).textContent = `${n === '22' ? 'Flávio Bolsonaro' : 'Lula'} ${formatPct(data.firstRound.candidates[n].percentage)}`;
   }
   $('counted').textContent = formatPct(last.counted);
   const age = Date.now() - new Date(last.at).getTime();
-  $('status-text').textContent = last.counted >= 99.99 ? 'APURAÇÃO CONCLUÍDA' : age > 20 * 60 * 1000 ? 'DADOS DESATUALIZADOS' : 'APURAÇÃO EM ANDAMENTO';
+  $('status-text').textContent = last.counted >= 99.99 ? 'APURAÇÃO CONCLUÍDA' : age > 20 * 60 * 1000 ? 'DADOS DESATUALIZADOS' : state.live ? 'AO VIVO · CONSULTA DIRETA AO TSE' : 'APURAÇÃO EM ANDAMENTO';
   $('updated').textContent = `TSE: ${dateFmt.format(new Date(last.at))} (Brasília) · ${data.history.length} registros`;
   $('source-link').href = data.round2Url;
   draw();
+}
+
+function appendObserved(data, snapshot) {
+  const history = data.history;
+  const last = history.at(-1);
+  if (snapshot.counted < last.counted || snapshot.at < last.at) return;
+  if (history.some(p => p.id === snapshot.id || (
+    p.candidates['13'].votes === snapshot.candidates['13'].votes &&
+    p.candidates['22'].votes === snapshot.candidates['22'].votes))) return;
+  if (snapshot.counted === last.counted) history.pop();
+  history.push(snapshot);
+}
+
+function parseOfficial(payload) {
+  if (payload.ele !== '6258' || payload.t !== '2' || payload.cdabr !== 'br') throw new Error('Feed inesperado do TSE');
+  const cargo = payload.carg.find(c => c.cd === '1');
+  const rows = {};
+  for (const group of cargo.agr) for (const party of group.par || []) for (const cand of party.cand || []) {
+    if (cand.n === '13' || cand.n === '22') {
+      rows[cand.n] = { name: cand.nmu, votes: Number(cand.vap), percentage: Number(cand.pvapn.replace(',', '.')) };
+    }
+  }
+  if (!rows['13'] || !rows['22'] || !Number.isFinite(rows['13'].percentage) || !Number.isFinite(rows['22'].percentage)) throw new Error('Candidatos ausentes no feed');
+  const [day, month, year] = payload.dt.split('/');
+  const at = `${year}-${month}-${day}T${payload.ht}-03:00`;
+  return { id: String(payload.idg), at, counted: Number(payload.s.pstn.replace(',', '.')),
+    validVotes: Number(payload.v.vvc), candidates: rows };
+}
+
+async function loadLive() {
+  if (!state.data) return;
+  try {
+    const response = await fetch(`${state.data.round2Url}?v=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const snapshot = parseOfficial(await response.json());
+    appendObserved(state.data, snapshot);
+    state.live = true;
+    updateUI(state.data);
+  } catch (error) {
+    console.warn('Consulta direta indisponível; usando histórico publicado:', error);
+    state.live = false;
+    updateUI(state.data);
+  }
 }
 
 async function load() {
@@ -128,8 +172,14 @@ async function load() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     if (!data.history?.length || !data.firstRound?.candidates) throw new Error('Dados incompletos');
+    if (state.data) {
+      for (const point of state.data.history) {
+        if (!data.history.some(p => p.id === point.id)) appendObserved(data, point);
+      }
+    }
     state.data = data;
     updateUI(data);
+    await loadLive();
   } catch (error) {
     $('status-text').textContent = state.data ? 'FALHA AO ATUALIZAR · EXIBINDO ÚLTIMO REGISTRO' : 'DADOS INDISPONÍVEIS';
     $('updated').textContent = 'Não foi possível obter os dados. Tente recarregar a página.';
@@ -168,3 +218,4 @@ $('chart-wrap').addEventListener('pointerleave', () => { if (!state.dragging) { 
 window.addEventListener('resize', draw);
 load();
 setInterval(load, 90_000);
+setInterval(loadLive, 30_000);

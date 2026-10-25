@@ -20,6 +20,766 @@
   },
   "history": [
     {
+      "id": "archive-1792958801203",
+      "at": "2026-10-25T17:06:41-03:00",
+      "counted": 0.2125196295228023,
+      "validVotes": 297104,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 174065,
+          "percentage": 58.58722871452421
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 123039,
+          "percentage": 41.41277128547579
+        }
+      }
+    },
+    {
+      "id": "archive-1792958921314",
+      "at": "2026-10-25T17:08:41-03:00",
+      "counted": 0.24536903502868312,
+      "validVotes": 335743,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 193574,
+          "percentage": 57.655409047992066
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 142169,
+          "percentage": 42.344590952007934
+        }
+      }
+    },
+    {
+      "id": "archive-1792965761348",
+      "at": "2026-10-25T19:02:41-03:00",
+      "counted": 0.3745633432682755,
+      "validVotes": 488682,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 271370,
+          "percentage": 55.53099970942249
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 217312,
+          "percentage": 44.46900029057751
+        }
+      }
+    },
+    {
+      "id": "archive-1792966001434",
+      "at": "2026-10-25T19:06:41-03:00",
+      "counted": 1.514277473319873,
+      "validVotes": 1881527,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 983482,
+          "percentage": 52.27041652870249
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 898045,
+          "percentage": 47.729583471297516
+        }
+      }
+    },
+    {
+      "id": "archive-1792966121315",
+      "at": "2026-10-25T19:08:41-03:00",
+      "counted": 1.5811780918501426,
+      "validVotes": 1967220,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 1025999,
+          "percentage": 52.15476662498348
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 941221,
+          "percentage": 47.84523337501652
+        }
+      }
+    },
+    {
+      "id": "archive-1792966241280",
+      "at": "2026-10-25T19:10:41-03:00",
+      "counted": 1.6254446687818478,
+      "validVotes": 2023426,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 1055045,
+          "percentage": 52.1415164181937
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 968381,
+          "percentage": 47.858483581806304
+        }
+      }
+    },
+    {
+      "id": "archive-1792966361406",
+      "at": "2026-10-25T19:12:41-03:00",
+      "counted": 1.66870973944813,
+      "validVotes": 2076953,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 1082535,
+          "percentage": 52.12130462268525
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 994418,
+          "percentage": 47.87869537731475
+        }
+      }
+    },
+    {
+      "id": "archive-1792966481542",
+      "at": "2026-10-25T19:14:41-03:00",
+      "counted": 1.7374130692561613,
+      "validVotes": 2162713,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 1126437,
+          "percentage": 52.08444208732273
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 1036276,
+          "percentage": 47.91555791267727
+        }
+      }
+    },
+    {
+      "id": "archive-1792966601305",
+      "at": "2026-10-25T19:16:41-03:00",
+      "counted": 1.937914623593885,
+      "validVotes": 2407891,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 1251093,
+          "percentage": 51.95804129007501
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 1156798,
+          "percentage": 48.04195870992499
+        }
+      }
+    },
+    {
+      "id": "archive-1792966721777",
+      "at": "2026-10-25T19:18:41-03:00",
+      "counted": 2.1438243117648947,
+      "validVotes": 2669874,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 1380762,
+          "percentage": 51.71637313221523
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 1289112,
+          "percentage": 48.283626867784776
+        }
+      }
+    },
+    {
+      "id": "archive-1792966842148",
+      "at": "2026-10-25T19:20:42-03:00",
+      "counted": 2.4220427522994585,
+      "validVotes": 3022512,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 1553764,
+          "percentage": 51.406379858872356
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 1468748,
+          "percentage": 48.593620141127644
+        }
+      }
+    },
+    {
+      "id": "archive-1792966961750",
+      "at": "2026-10-25T19:22:41-03:00",
+      "counted": 2.7773771752716088,
+      "validVotes": 3465412,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 1783016,
+          "percentage": 51.451775431031
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 1682396,
+          "percentage": 48.548224568969
+        }
+      }
+    },
+    {
+      "id": "archive-1792967081432",
+      "at": "2026-10-25T19:24:41-03:00",
+      "counted": 3.2933532032176394,
+      "validVotes": 4115176,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 2112757,
+          "percentage": 51.34062309850174
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 2002419,
+          "percentage": 48.659376901498256
+        }
+      }
+    },
+    {
+      "id": "archive-1792967201828",
+      "at": "2026-10-25T19:26:41-03:00",
+      "counted": 3.77047078806525,
+      "validVotes": 4723960,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 2418535,
+          "percentage": 51.19719472645831
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 2305425,
+          "percentage": 48.802805273541686
+        }
+      }
+    },
+    {
+      "id": "archive-1792967321699",
+      "at": "2026-10-25T19:28:41-03:00",
+      "counted": 4.6826426946126976,
+      "validVotes": 5862975,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 3001380,
+          "percentage": 51.19209957402172
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 2861595,
+          "percentage": 48.80790042597828
+        }
+      }
+    },
+    {
+      "id": "archive-1792967442033",
+      "at": "2026-10-25T19:30:42-03:00",
+      "counted": 5.404127808223568,
+      "validVotes": 6770106,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 3456282,
+          "percentage": 51.05211055779629
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 3313824,
+          "percentage": 48.94788944220371
+        }
+      }
+    },
+    {
+      "id": "archive-1792967561583",
+      "at": "2026-10-25T19:32:41-03:00",
+      "counted": 6.629370573342307,
+      "validVotes": 8301371,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 4221574,
+          "percentage": 50.85393725927923
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 4079797,
+          "percentage": 49.14606274072078
+        }
+      }
+    },
+    {
+      "id": "archive-1792967681444",
+      "at": "2026-10-25T19:34:41-03:00",
+      "counted": 7.667732269333078,
+      "validVotes": 9593702,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 4869624,
+          "percentage": 50.75854972355822
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 4724078,
+          "percentage": 49.241450276441775
+        }
+      }
+    },
+    {
+      "id": "archive-1792967801937",
+      "at": "2026-10-25T19:36:41-03:00",
+      "counted": 8.635988526744223,
+      "validVotes": 10813480,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 5472540,
+          "percentage": 50.60849976140891
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 5340940,
+          "percentage": 49.39150023859109
+        }
+      }
+    },
+    {
+      "id": "archive-1792967921544",
+      "at": "2026-10-25T19:38:41-03:00",
+      "counted": 9.989824696343302,
+      "validVotes": 12508966,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 6314616,
+          "percentage": 50.48071918973959
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 6194350,
+          "percentage": 49.51928081026042
+        }
+      }
+    },
+    {
+      "id": "archive-1792968041297",
+      "at": "2026-10-25T19:40:41-03:00",
+      "counted": 10.868946896131783,
+      "validVotes": 13605977,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 6859327,
+          "percentage": 50.41407169804859
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 6746650,
+          "percentage": 49.58592830195141
+        }
+      }
+    },
+    {
+      "id": "archive-1792968161331",
+      "at": "2026-10-25T19:42:41-03:00",
+      "counted": 11.895290516937473,
+      "validVotes": 14875445,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 7487249,
+          "percentage": 50.33294130024345
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 7388196,
+          "percentage": 49.667058699756545
+        }
+      }
+    },
+    {
+      "id": "archive-1792968281209",
+      "at": "2026-10-25T19:44:41-03:00",
+      "counted": 12.908013652533409,
+      "validVotes": 16133591,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 8098746,
+          "percentage": 50.198037126390524
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 8034845,
+          "percentage": 49.801962873609476
+        }
+      }
+    },
+    {
+      "id": "archive-1792968401213",
+      "at": "2026-10-25T19:46:41-03:00",
+      "counted": 14.289090792551997,
+      "validVotes": 17830766,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 8910951,
+          "percentage": 49.97514408522887
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 8919815,
+          "percentage": 50.02485591477112
+        }
+      }
+    },
+    {
+      "id": "archive-1792968521130",
+      "at": "2026-10-25T19:48:41-03:00",
+      "counted": 15.056244591866166,
+      "validVotes": 18778024,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 9373489,
+          "percentage": 49.9173342200436
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 9404535,
+          "percentage": 50.0826657799564
+        }
+      }
+    },
+    {
+      "id": "archive-1792968641177",
+      "at": "2026-10-25T19:50:41-03:00",
+      "counted": 15.383737140659552,
+      "validVotes": 19176767,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 9569996,
+          "percentage": 49.90411574589189
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 9606771,
+          "percentage": 50.095884254108114
+        }
+      }
+    },
+    {
+      "id": "archive-1792968761282",
+      "at": "2026-10-25T19:52:41-03:00",
+      "counted": 16.38784732237285,
+      "validVotes": 20412512,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 10163250,
+          "percentage": 49.789315494339945
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 10249262,
+          "percentage": 50.210684505660055
+        }
+      }
+    },
+    {
+      "id": "archive-1792968881331",
+      "at": "2026-10-25T19:54:41-03:00",
+      "counted": 17.490706021856873,
+      "validVotes": 21764125,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 10822271,
+          "percentage": 49.725274965108866
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 10941854,
+          "percentage": 50.274725034891134
+        }
+      }
+    },
+    {
+      "id": "archive-1792969001447",
+      "at": "2026-10-25T19:56:41-03:00",
+      "counted": 19.199075409415762,
+      "validVotes": 23830141,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 11821247,
+          "percentage": 49.606282228879806
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 12008894,
+          "percentage": 50.393717771120194
+        }
+      }
+    },
+    {
+      "id": "archive-1792969121610",
+      "at": "2026-10-25T19:58:41-03:00",
+      "counted": 20.76683331730923,
+      "validVotes": 25719594,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 12734000,
+          "percentage": 49.510890412966866
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 12985594,
+          "percentage": 50.48910958703314
+        }
+      }
+    },
+    {
+      "id": "archive-1792969241309",
+      "at": "2026-10-25T20:00:41-03:00",
+      "counted": 22.30294362721533,
+      "validVotes": 27578094,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 13661672,
+          "percentage": 49.53812979243598
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 13916422,
+          "percentage": 50.46187020756402
+        }
+      }
+    },
+    {
+      "id": "archive-1792969361263",
+      "at": "2026-10-25T20:02:41-03:00",
+      "counted": 23.97846360926834,
+      "validVotes": 29625519,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 14667306,
+          "percentage": 49.50902632288062
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 14958213,
+          "percentage": 50.49097367711938
+        }
+      }
+    },
+    {
+      "id": "archive-1792969481355",
+      "at": "2026-10-25T20:04:41-03:00",
+      "counted": 25.793192962215173,
+      "validVotes": 31848002,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 15779700,
+          "percentage": 49.54690721257805
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 16068302,
+          "percentage": 50.45309278742196
+        }
+      }
+    },
+    {
+      "id": "archive-1792969601166",
+      "at": "2026-10-25T20:06:41-03:00",
+      "counted": 27.731708489568312,
+      "validVotes": 34220776,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 16961875,
+          "percentage": 49.566015101469354
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 17258901,
+          "percentage": 50.433984898530646
+        }
+      }
+    },
+    {
+      "id": "archive-1792969721808",
+      "at": "2026-10-25T20:08:41-03:00",
+      "counted": 29.62215171618114,
+      "validVotes": 36545106,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 18109841,
+          "percentage": 49.55476391284787
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 18435265,
+          "percentage": 50.44523608715213
+        }
+      }
+    },
+    {
+      "id": "archive-1792969841810",
+      "at": "2026-10-25T20:10:41-03:00",
+      "counted": 31.799226035958085,
+      "validVotes": 39205023,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 19428127,
+          "percentage": 49.555198577488405
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 19776896,
+          "percentage": 50.444801422511595
+        }
+      }
+    },
+    {
+      "id": "archive-1792969961477",
+      "at": "2026-10-25T20:12:41-03:00",
+      "counted": 32.849205204627765,
+      "validVotes": 40495663,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 20087112,
+          "percentage": 49.6031192278541
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 20408551,
+          "percentage": 50.39688077214589
+        }
+      }
+    },
+    {
+      "id": "archive-1792970081386",
+      "at": "2026-10-25T20:14:41-03:00",
+      "counted": 36.22287921033234,
+      "validVotes": 44644903,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 22177020,
+          "percentage": 49.67424836828518
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 22467883,
+          "percentage": 50.32575163171482
+        }
+      }
+    },
+    {
+      "id": "archive-1792970201477",
+      "at": "2026-10-25T20:16:41-03:00",
+      "counted": 38.52153639073166,
+      "validVotes": 47472052,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 23600924,
+          "percentage": 49.71540728848207
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 23871128,
+          "percentage": 50.28459271151793
+        }
+      }
+    },
+    {
+      "id": "archive-1792970322346",
+      "at": "2026-10-25T20:18:42-03:00",
+      "counted": 39.8445261673557,
+      "validVotes": 49105215,
+      "origin": "Placar / captura do TSE",
+      "candidates": {
+        "13": {
+          "name": "Lula",
+          "votes": 24444579,
+          "percentage": 49.78000605434678
+        },
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 24660636,
+          "percentage": 50.21999394565323
+        }
+      }
+    },
+    {
       "id": "4061881",
       "at": "2026-10-25T20:19:04-03:00",
       "counted": 41.580136525,
@@ -70,6 +830,24 @@
           "name": "Lula",
           "votes": 27640095,
           "percentage": 49.918857754
+        }
+      }
+    },
+    {
+      "id": "4092063",
+      "at": "2026-10-25T20:31:34-03:00",
+      "counted": 55.556957664,
+      "validVotes": 68511672,
+      "candidates": {
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 33999323,
+          "percentage": 49.625592264
+        },
+        "13": {
+          "name": "Lula",
+          "votes": 34512349,
+          "percentage": 50.374407736
         }
       }
     }

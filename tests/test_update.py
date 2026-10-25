@@ -1,8 +1,19 @@
 import unittest
+import json
+from pathlib import Path
 from scripts.update import extract, merge
 
 
 class ElectionDataTest(unittest.TestCase):
+    def test_archive_is_attributed_and_verified(self):
+        from scripts.import_archive import archived_points
+        raw = json.loads((Path(__file__).resolve().parents[1] / 'data/archive-2026-10-25.json').read_text())
+        points = archived_points(raw, '2026-10-25T20:19:04-03:00')
+        self.assertGreater(len(points), 30)
+        self.assertAlmostEqual(points[0]['counted'], .21252, places=4)
+        self.assertTrue(all(p['origin'] == 'Placar / captura do TSE' for p in points))
+        self.assertTrue(all(a['counted'] < b['counted'] for a, b in zip(points, points[1:])))
+
     def test_parse_national_candidate_totals(self):
         payload = {
             'tpabr': 'br', 'cdabr': 'br', 't': '1', 'ele': '6257',

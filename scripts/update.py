@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Collect official national presidential totals for the static Pages dashboard."""
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
