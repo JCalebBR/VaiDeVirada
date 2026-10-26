@@ -32,7 +32,7 @@ WEST_AM = {'ATALAIA DO NORTE', 'BENJAMIN CONSTANT', 'BOCA DO ACRE', 'EIRUNEPE',
 
 STATUSES = ('ok', 'pending', 'aggregated', 'failed', 'excluded', 'unreconciled')
 # Bump when enumeration changes so existing checkpoints re-read the catalogs once.
-CATALOG_VERSION = '2'
+CATALOG_VERSION = '3'
 
 
 class Excluded(ValueError):
@@ -45,8 +45,10 @@ def ascii_name(value):
 
 
 def utc_offset(uf, name):
+    # Abroad, polls close at 17h local time and the extension order covered only Brazil:
+    # keep the urn's local clock instead of guessing each country's offset.
     if uf == 'zz':
-        raise Excluded('timezone_unknown_exterior')
+        return None
     if uf == 'ac' or (uf == 'am' and ascii_name(name) in WEST_AM):
         return -5
     if uf in ('am', 'ro', 'rr', 'mt', 'ms'):
@@ -71,16 +73,19 @@ def log_texts(raw, depth=0):
             yield from log_texts(archive.read(name), depth + 1)
 
 
-def parse_log(raw, offset):
+def parse_log(raw, offset, day=DAY):
+    """Count votes by hour; offset None keeps the urn's local clock unconverted."""
     result = dict(total=0, pre17=0, at17=0, post17to19=0, after19=0)
     last = None
     for text in log_texts(raw):
         previous, equipment = None, set()
         for line in text.splitlines():
             parts = line.split('\t')
-            if not line.startswith(DAY):
+            if not line.startswith(day):
                 continue
-            if re.search(r'(ajust|alter|corrig).*(relógio|horário|data/hora)', line, re.I):
+            # Urns abroad apply daylight saving at boot, before the first vote; only a change
+            # after voting started can shift vote times.
+            if previous and re.search(r'(ajust|alter|corrig).*(relógio|horário|data/hora)', line, re.I):
                 raise Excluded('clock_adjustment')
             if len(parts) != 6 or parts[3:5] != ['VOTA', EVENT]:
                 continue
@@ -88,8 +93,8 @@ def parse_log(raw, offset):
             if len(equipment) != 1:
                 raise Excluded('multiple_equipment')
             local = datetime.strptime(parts[0], '%d/%m/%Y %H:%M:%S')
-            brt = local.replace(tzinfo=timezone(timedelta(hours=offset))).astimezone(
-                timezone(timedelta(hours=-3)))
+            brt = local if offset is None else local.replace(
+                tzinfo=timezone(timedelta(hours=offset))).astimezone(timezone(timedelta(hours=-3)))
             if previous and brt < previous:
                 raise Excluded('clock_regression')
             previous = brt
@@ -149,7 +154,8 @@ def children(node, tag=48):
     return node[1]
 
 
-def parse_bu(raw, municipality, zone, section):
+def bu_body(raw, municipality, zone, section, date='20261025'):
+    """Return turnout and the elections node of a BU after checking envelope, identity and date."""
     outer = der_nodes(raw)
     if len(outer) != 1:
         raise Excluded('bu_envelope')
@@ -160,17 +166,24 @@ def parse_bu(raw, municipality, zone, section):
     if len(body_nodes) != 1:
         raise Excluded('bu_body')
     body = children(body_nodes[0])
-    if len(body) != 10 or integer(body[1], 10) != 2:
+    # Exterior BUs omit the optional [1] field between turnout and the elections.
+    if len(body) == 10 and body[7][0] == 161:
+        del body[7]
+    if len(body) != 9 or integer(body[1], 10) != 2:
         raise Excluded('bu_version_or_type')
     identity = children(body[3])
     locality = children(identity[0])
     found = (integer(locality[0]), integer(locality[1]), integer(identity[2]))
     if found != (int(municipality), int(zone), int(section)):
         raise Excluded('bu_identity_or_aggregated')
-    if body[4][0] != 27 or not body[4][1].startswith(b'20261025T'):
+    if body[4][0] != 27 or not body[4][1].startswith(f'{date}T'.encode()):
         raise Excluded('bu_date')
-    turnout = integer(body[6])
-    elections = children(body[8])
+    return integer(body[6]), body[7]
+
+
+def parse_bu(raw, municipality, zone, section):
+    turnout, elections = bu_body(raw, municipality, zone, section)
+    elections = children(elections)
     matches = [children(e) for e in elections if integer(children(e)[0]) == 6258]
     if len(matches) != 1:
         raise Excluded('bu_election')
@@ -234,8 +247,16 @@ def enumerate_sections(payload, uf):
                             principal is not None and not re.fullmatch(r'\d+', principal)):
                         raise Excluded('config_identifiers')
                     # An aggregated section ("nsp") has no files; its votes are in the principal's BU.
-                    found[(uf, *ids)] = (mun['nm'], principal and principal.zfill(4))
-    return [(key, name, principal) for key, (name, principal) in sorted(found.items())]
+                    received = (f"{sec['da']} {sec['ha']}" if re.fullmatch(r'\d\d/\d\d/\d{4}', sec.get('da', ''))
+                                and re.fullmatch(r'\d\d:\d\d:\d\d', sec.get('ha', '')) else None)
+                    found[(uf, *ids)] = (mun['nm'], principal and principal.zfill(4), received)
+    return [(key, name, principal, received)
+            for key, (name, principal, received) in sorted(found.items())]
+
+
+def received_before_17(received):
+    """The TSE stamps when a section's files arrived (Brasília time): no vote can be later."""
+    return bool(received) and received.startswith(DAY) and received[11:] < '17:00:00'
 
 
 class Blocked(RuntimeError):
@@ -360,6 +381,9 @@ def collect_one(key, name, fetch):
         record = hashes[0]
         if not re.fullmatch(r'[A-Za-z0-9=]+', record['hash']):
             raise Excluded('invalid_hash')
+        if any(a['tp'] in ('busa', 'logsa') for a in record['arq']):
+            # Paper ballots counted in the SA system: no electronic log of each vote's time.
+            raise Excluded('paper_ballot_sa')
         files = {}
         for kind in ('log', 'bu'):
             matches = [a['nm'] for a in record['arq'] if a['tp'] == kind]
@@ -385,11 +409,13 @@ def empty_group():
                 votes={'13': 0, '22': 0, 'blank': 0, 'null': 0},
                 estimatedWindow={'13': 0., '22': 0., 'blank': 0., 'null': 0.},
                 estimatedRemoved={'13': 0., '22': 0., 'blank': 0., 'null': 0.},
-                marginBounds=[0, 0], lastVoteHourBRT={}, lastVoteHourKnownSections=0)
+                marginBounds=[0, 0], lastVoteHourBRT={}, lastVoteHourKnownSections=0,
+                largestSection=0)
 
 
 def add_group(group, row):
     group['sections'] += 1
+    group['largestSection'] = max(group['largestSection'], row['total'])
     for field in ('total', 'pre17', 'at17', 'post17to19', 'after19'):
         group[field] += row[field]
     removed = row['post17to19'] + row['after19']
@@ -411,13 +437,17 @@ def add_group(group, row):
 
 
 def summarize(rows):
-    national, areas, municipalities = empty_group(), {}, {}
+    national, areas, municipalities, exterior = empty_group(), {}, {}, empty_group()
     for uf, mun, payload in rows:
         row = json.loads(payload) if isinstance(payload, str) else payload
-        for group in (national, areas.setdefault(uf.upper(), empty_group()),
-                      municipalities.setdefault(f'{uf.upper()}/{mun}', empty_group())):
+        # Exterior hours are local clock, so they stay out of every Brasília-time sum.
+        groups = (exterior,) if uf == 'zz' else (
+            national, areas.setdefault(uf.upper(), empty_group()),
+            municipalities.setdefault(f'{uf.upper()}/{mun}', empty_group()))
+        for group in groups:
             add_group(group, row)
-    for group in [national, *areas.values(), *municipalities.values()]:
+    exterior['lastVoteHourLocal'] = exterior.pop('lastVoteHourBRT')
+    for group in [national, exterior, *areas.values(), *municipalities.values()]:
         group['estimatedUntil17'] = {
             n: group['votes'][n] - group['estimatedRemoved'][n] for n in ('13', '22')}
         diff = group['estimatedUntil17']['13'] - group['estimatedUntil17']['22']
@@ -427,28 +457,49 @@ def summarize(rows):
     municipal_fields = ('sections', 'total', 'pre17', 'post17to19', 'after19', 'estimatedWindow')
     municipalities = {key: {field: group[field] for field in municipal_fields}
                       for key, group in municipalities.items()}
-    return {'national': national, 'byUF': areas, 'byMunicipality': municipalities}
+    return {'national': national, 'byUF': areas, 'byMunicipality': municipalities, 'exterior': exterior}
 
 
 Z_999 = 3.29
 
 
-def confidence(byUF, denominators, official, rate_per_minute=None, now=None):
-    """Can removing every vote after 17h flip the final margin? Answer at 99.9% or say when."""
+def exterior_bound(sections, largest):
+    """Votes abroad that may have ended after 17h Brasília time, with no country offset.
+
+    sections: (status, received, total) per exterior section with files. A section whose
+    files reached the TSE before 17h contributes nothing; any other counts in full, and
+    one without a reconciled total counts as large as the largest known section."""
+    bound = before = 0
+    for status, received, total in sections:
+        if received_before_17(received):
+            before += 1
+        else:
+            bound += total if status == 'ok' and total else largest
+    return dict(sections=len(sections), receivedBefore17BRT=before, lateBoundBRT=round(bound))
+
+
+def confidence(byUF, denominators, official, rate_per_minute=None, now=None, exterior=()):
+    """Can removing every vote after 17h flip the final margin? Answer at 99.9% or say when.
+
+    Once no section is pending the sample is a census: the only slack left is the worst
+    case for sections outside the sum, and `kind` says so instead of a confidence level."""
     if not official:
         return None
     a, b = (official['candidates'][n]['votes'] for n in ('13', '22'))
     margin = abs(a - b)
     sampled = sum(group['sections'] for group in byUF.values())
     mean_votes = sum(group['total'] for group in byUF.values()) / sampled if sampled else 0
+    largest = max((group['largestSection'] for group in byUF.values()), default=0) or mean_votes
     estimate = variance = worst = 0
     for uf, counts in denominators.items():
+        if uf == 'ZZ':
+            continue
         group = byUF.get(uf) or empty_group()
         n = group['sections']
         unsampled = sum(counts.get(s, 0) for s in ('failed', 'excluded', 'unreconciled'))
-        if uf == 'ZZ' or n < 2:
+        if n < 2:
             # No usable sample: count every section as if all of its votes were late.
-            worst += (counts.get('pending', 0) + unsampled) * mean_votes
+            worst += (counts.get('pending', 0) + unsampled) * largest
             estimate += group['post17to19'] + group['after19']
             continue
         population = n + counts.get('pending', 0)
@@ -457,10 +508,18 @@ def confidence(byUF, denominators, official, rate_per_minute=None, now=None):
         spread = max(0, (group['lateSquares'] - n * mean ** 2) / (n - 1))
         estimate += population * mean
         variance += population ** 2 * (1 - n / population) * spread / n
-        worst += unsampled * group['total'] / n
+        worst += unsampled * group['largestSection']
+    abroad = exterior_bound(exterior, largest) if exterior else None
+    if abroad:
+        worst += abroad['lateBoundBRT']
+    elif 'ZZ' in denominators:
+        worst += sum(v for k, v in denominators['ZZ'].items() if k != 'aggregated') * largest
     upper = estimate + Z_999 * variance ** .5 + worst
-    result = dict(level=.999, margin=margin, lateEstimate=round(estimate), lateUpper=round(upper),
-                  worstCaseNonRandom=round(worst), sampleSections=sampled, answered=upper < margin,
+    census = not any(counts.get('pending') for counts in denominators.values())
+    result = dict(kind='census' if census else 'sample', level=None if census else .999,
+                  margin=margin, lateEstimate=round(estimate), lateUpper=round(upper),
+                  worstCaseNonRandom=round(worst), exterior=abroad, sampleSections=sampled,
+                  answered=upper < margin,
                   marginFinal=float(str(official.get('counted', 0)).replace(',', '.')) >= 100,
                   sectionsNeeded=None, etaAnsweredAt=None)
     if result['answered']:
@@ -487,6 +546,8 @@ def connect(path):
       CREATE TABLE IF NOT EXISTS configs (uf TEXT PRIMARY KEY, status TEXT, detail TEXT);
       CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
     """)
+    if 'received' not in {row[1] for row in db.execute('PRAGMA table_info(sections)')}:
+        db.execute('ALTER TABLE sections ADD COLUMN received TEXT')
     return db
 
 
@@ -518,6 +579,14 @@ def export(db, output, report, progress=None):
             "SELECT uf,mun,COUNT(*),SUM(status='ok') FROM sections GROUP BY uf,mun"):
         municipal_coverage[f'{uf.upper()}/{mun}'] = {'total': total, 'ok': ok}
     data = summarize(db.execute("SELECT uf,mun,payload FROM sections WHERE status='ok'"))
+    exterior = [(status, received, json.loads(payload)['total'] if status == 'ok' else None)
+                for status, received, payload in db.execute(
+                    "SELECT status,received,payload FROM sections WHERE uf='zz' AND status!='aggregated'")]
+    cities = {}
+    for name, received in db.execute("SELECT name,received FROM sections WHERE uf='zz' AND status!='aggregated'"):
+        cities[name] = cities.get(name, True) and received_before_17(received)
+    data['exterior'].update(clock='local', cities=len(cities),
+                            citiesReceivedBefore17BRT=sum(cities.values()))
     metadata = dict(db.execute("SELECT key,value FROM meta"))
     official = metadata.get('official')
     official = json.loads(official) if official else None
@@ -533,15 +602,17 @@ def export(db, output, report, progress=None):
                 progress=progress,
                 sampling={'catalogOrderSections': int(metadata.get('catalogOrderSections', 0))},
                 confidence=confidence(data['byUF'], denominators, official,
-                                      progress.get('sectionsPerMinute') if progress.get('state') == 'running' else None),
+                                      progress.get('sectionsPerMinute') if progress.get('state') == 'running' else None,
+                                      exterior=exterior),
                 method={
                     'window': '17:00:00 < conclusão <= 19:00:00 BRT; corte até 17h inclui igualdade',
                     'removed': 'Todos os eventos >17h, inclusive >19h, no contrafactual até 17h',
                     'allocation': 'Hipótese: mesma proporção do BU entre horários, incluindo brancos/nulos; não são escolhas observadas.',
-                    'clock': 'Relógio local convertido para UTC-03; fusos por UF e exceções municipais; ZZ excluído.',
-                    'scope': 'Somas somente das seções reconciliadas; a projeção nacional fica em confidence.',
+                    'clock': 'Relógio local convertido para UTC-03; fusos por UF e exceções municipais. Exterior em `exterior`, no relógio local (fechamento às 17h locais), fora das somas em BRT.',
+                    'scope': 'national, byUF e byMunicipality: só seções reconciliadas no Brasil; a projeção nacional fica em confidence.',
                     'sampling': 'Ordem sorteada dentro de cada UF, todas no mesmo percentual; as primeiras sampling.catalogOrderSections seções seguiram a ordem do catálogo.',
-                    'confidence': 'Estimativa estratificada por UF dos votos após 17h, limite de 99,9% (z=3,29), mais pior caso para exterior e seções excluídas, com falha ou não reconciliadas.',
+                    'confidence': 'kind=sample: estimativa estratificada por UF, limite de 99,9% (z=3,29). kind=census: contagem completa, sem erro amostral. Nos dois, soma-se o pior caso: seções excluídas, com falha ou não reconciliadas valem a maior seção da UF; no exterior, só seções cujos arquivos chegaram ao TSE depois das 17h BRT entram, com todos os votos.',
+                    'measures': 'Votos concluídos depois das 17h, não votos causados pela prorrogação: inclui quem já estava na fila às 17h e votaria pela regra normal.',
                     'bounds': 'Limites combinatórios por seção; não intervalo estatístico.',
                     'legal': 'Janela analítica; não comprova extensão legal geral do horário.'},
                 sources={'config': f'{BASE}/arquivo-urna/3221/config/',
@@ -641,11 +712,13 @@ def load_catalogs(db, fetch):
             payload = json.loads(fetch(f'{BASE}/arquivo-urna/3221/config/{uf}/{uf}-p003221-cs.json', 12_000_000))
             rows = enumerate_sections(payload, uf)
             db.executemany('INSERT OR IGNORE INTO sections(uf,mun,zone,section,name) VALUES(?,?,?,?,?)',
-                           [(*key, name) for key, name, _ in rows])
+                           [(*key, name) for key, name, *_ in rows])
+            db.executemany('UPDATE sections SET received=? WHERE uf=? AND mun=? AND zone=? AND section=?',
+                           [(received, *key) for key, _, _, received in rows])
             db.executemany(
                 "UPDATE sections SET status='aggregated',payload=? "
                 "WHERE uf=? AND mun=? AND zone=? AND section=? AND status!='ok'",
-                [(json.dumps({'principal': principal}), *key) for key, _, principal in rows if principal])
+                [(json.dumps({'principal': principal}), *key) for key, _, principal, _ in rows if principal])
             db.execute('INSERT OR REPLACE INTO configs VALUES(?,?,?)', (uf, 'ok', str(len(rows))))
         except Blocked:
             raise

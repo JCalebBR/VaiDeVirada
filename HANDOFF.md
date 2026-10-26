@@ -30,6 +30,7 @@ estado do GitHub mudam: reconfirme antes de relatar numeros ou publicar.
 | `scripts/update.py` | Coleta e validacao da totalizacao nacional |
 | `scripts/update_extension.py` | Consulta ao catalogo de BU por UF, **nao** aos arquivos individuais |
 | `scripts/audit_urna.py` | Inspecao reproduzivel de **uma** urna por vez, sem salvar log bruto |
+| `scripts/sample_first_round.py` | Amostra de 1% do 1o turno (sem prorrogacao), em `data/first-round-baseline.json` |
 | `scripts/collect_urna_logs.py` | Coleta nacional retomavel de log + BU por secao; checkpoint em `.cache/urna-logs/` |
 | `data/extension-analysis.json` | Agregados reconciliados por Brasil, UF e municipio, com cobertura |
 | `scripts/import_archive.py`, `scripts/import_first_round.py` | Importacoes historicas verificaveis |
@@ -72,8 +73,8 @@ A publicacao e feita por `~/.config/systemd/user/vaidevirada-publish.{service,ti
 
 Ao terminar: `--retry-failed` uma vez, conferir `absences.jsonl`, rodar os
 testes, revisar a pagina e so entao commitar `data/extension-analysis.json`.
-Pendencias conhecidas: o exterior (`zz`, 2.715 secoes) fica fora ate validar
-o fuso por pais; secoes com mais de um conjunto de arquivos no `aux.json`
+O exterior (`zz`) entra no relogio local, em `exterior`, fora das somas em BRT;
+o limite usa a hora de chegada dos arquivos (`received`, do catalogo). Pendencias: secoes com mais de um conjunto de arquivos no `aux.json`
 (contingencia) sao excluidas, nao escolhidas. Detalhes em `docs/urna-logs.md`.
 
 Os logs nao ligam horario ao candidato. A divisao por candidato usa a

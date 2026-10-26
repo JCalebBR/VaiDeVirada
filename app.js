@@ -335,12 +335,25 @@ function renderConfidence(confidence, official, sampling) {
     return false;
   }
   const provisional = confidence.marginFinal ? '' : ' A margem usada ainda é provisória, porque a totalização não chegou a 100%.';
+  const worstCase = 'No pior caso, cada seção do Brasil fora da soma vale a maior seção da UF, e cada seção do exterior cujos arquivos chegaram ao TSE depois das 17h de Brasília entra com todos os votos.';
+  // With no section pending the count is complete: no sampling error, only the worst case for what was left out.
+  if (confidence.kind === 'census') {
+    const text = confidence.answered
+      ? `Sem os votos depois das 17h, ${winner} venceria do mesmo jeito.`
+      : 'Sem os votos depois das 17h, o vencedor poderia mudar.';
+    const times = confidence.lateUpper ? Math.floor(confidence.margin / confidence.lateUpper) : 0;
+    $('analysis-confidence-answer').textContent = text;
+    $('analysis-confidence-detail').textContent = `Contagem completa: ${formatInt(confidence.lateEstimate)} votos concluídos depois das 17h nas seções reconciliadas do Brasil. Somando o pior caso para o que ficou fora da soma, o teto é de ${formatInt(confidence.lateUpper)} votos${times >= 2 ? `, cerca de ${times} vezes menor que a margem final de ${formatInt(confidence.margin)}` : `, para uma margem final de ${formatInt(confidence.margin)}`}. ${worstCase}${confidence.answered ? ` Mesmo que todos esses votos fossem para ${winner}, retirá-los não apagaria a vantagem.` : ''}${provisional}`;
+    label.textContent = 'RESPOSTA / LIMITE DE PIOR CASO';
+    answer.textContent = confidence.answered ? `${text} A prorrogação mal chegou a ser aplicada.` : text;
+    return true;
+  }
   const numbers = `Estimamos ${formatInt(confidence.lateEstimate)} votos concluídos depois das 17h no país inteiro; com 99,9% de confiança, no máximo ${formatInt(confidence.lateUpper)}. A margem final é de ${formatInt(confidence.margin)} votos.`;
   const ordered = Number.isInteger(sampling?.catalogOrderSections) ? Math.min(sampling.catalogOrderSections, confidence.sampleSections) : 0;
   const drawn = ordered
     ? `${formatInt(confidence.sampleSections)} seções reconciliadas; as primeiras ${formatInt(ordered)} processadas seguiram a ordem do catálogo, e as seguintes foram sorteadas dentro de cada UF`
     : `${formatInt(confidence.sampleSections)} seções sorteadas dentro de cada UF`;
-  const basis = ` A conta usa ${drawn}. Exterior, seções excluídas e falhas entram como se todos os seus votos fossem tardios.`;
+  const basis = ` A conta usa ${drawn}. ${worstCase}`;
   if (confidence.answered) {
     const text = `Sem os votos depois das 17h, ${winner} venceria do mesmo jeito.`;
     $('analysis-confidence-answer').textContent = text;
@@ -357,12 +370,70 @@ function renderConfidence(confidence, official, sampling) {
   return false;
 }
 
-function renderExtensionAnalysis(data) {
+const formatRate = n => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function sectionsFrom(hours, first) {
+  return Object.entries(hours || {}).reduce((sum, [hour, n]) => sum + (Number(hour) >= first ? n : 0), 0);
+}
+
+// Hour-of-last-vote shares for both rounds: the 1st round had no extension, only the queue rule.
+function renderBaseline(totals, baseline) {
+  const second = totals.lastVoteHourBRT || {}, known = totals.lastVoteHourKnownSections || 0;
+  const valid = baseline && baseline.status?.ok > 1 && Number.isInteger(baseline.late)
+    && Array.isArray(baseline.nationalLateInterval999) && baseline.lastVoteHourBRT;
+  const first = valid ? baseline.lastVoteHourBRT : {};
+  const firstKnown = Object.values(first).reduce((a, b) => a + b, 0);
+  const share = (hours, total, from, to = from) => {
+    if (!total) return '';
+    const n = Object.entries(hours).reduce((sum, [h, c]) => sum + (Number(h) >= from && Number(h) <= to ? c : 0), 0);
+    return `${formatPct(n / total * 100, n && n / total < .001 ? 3 : 1)} (${formatInt(n)})`;
+  };
+  const rows = [['Antes das 16h', 0, 15], ['16h', 16, 16], ['17h', 17, 17], ['18h', 18, 18], ['19h ou depois', 19, 23]];
+  $('applied-hours').innerHTML = rows.map(([label, from, to]) =>
+    `<tr><th scope="row">${label}</th><td>${valid ? share(first, firstKnown, from, to) : 'Sem amostra'}</td><td>${share(second, known, from, to)}</td></tr>`).join('');
+  if (!valid) {
+    $('applied-baseline').textContent = 'A amostra do 1º turno, usada como comparação, não pôde ser carregada.';
+    return;
+  }
+  const [low, high] = baseline.nationalLateInterval999;
+  const firstAfter18 = sectionsFrom(first, 18);
+  $('applied-baseline').textContent = `No 1º turno, em 4 de outubro, não houve prorrogação. Numa amostra sorteada de ${formatInt(baseline.status.ok)} seções, ${formatPct(firstAfter18 / firstKnown * 100, 1)} ainda registravam votos às 18h ou depois, e cerca de ${formatInt(Math.round(baseline.latePerThousand))} de cada mil votos foram concluídos depois das 17h. Para o país, isso dá entre ${formatInt(low)} e ${formatInt(high)} votos depois das 17h (99,9% de confiança), só pela regra da fila. A comparação não é exata: no 1º turno cada eleitor digitava seis votos (presidente, governador, dois senadores e dois deputados), e a fila no fechamento era maior. Ainda assim, mostra que votar depois das 17h é comum sem nenhuma prorrogação.`;
+}
+
+function renderApplied(data) {
+  const totals = data.national, known = totals.lastVoteHourKnownSections || 0;
+  const after18 = sectionsFrom(totals.lastVoteHourBRT, 18);
+  $('extension-after18').textContent = known ? `${formatInt(after18)} de ${formatInt(known)}` : 'Aguardando a coleta';
+  $('extension-after18-note').textContent = known
+    ? `${formatPct(after18 / known * 100, 2)} das seções reconciliadas do Brasil tiveram o último voto às 18h ou mais tarde, horário de Brasília.`
+    : 'Seções cujo último voto foi registrado às 18h ou mais tarde, horário de Brasília.';
+  if (!known) return;
+  const ufs = Object.entries(data.byUF || {}).filter(([uf, g]) => /^[A-Z]{2}$/.test(uf) && g.total > 0)
+    .map(([uf, g]) => ({ uf, late18: sectionsFrom(g.lastVoteHourBRT, 18), rate: (g.post17to19 + g.after19) / g.total * 1000 }));
+  const top = [...ufs].sort((a, b) => b.late18 - a.late18).filter(u => u.late18).slice(0, 4);
+  const rates = ufs.map(u => u.rate);
+  const places = top.map(u => `${u.uf} (${formatInt(u.late18)})`).join(', ').replace(/, ([^,]*)$/, ' e $1');
+  $('applied-summary').textContent = `Às 18h ou depois, só ${formatInt(after18)} de ${formatInt(known)} seções (${formatPct(after18 / known * 100, 2)}) ainda registravam votos${places ? `, a maioria em ${places}` : ''}. Depois das 19h foram ${formatInt(totals.after19)} votos no país todo. Em cada UF, os votos depois das 17h ficam entre ${formatRate(Math.min(...rates))} e ${formatRate(Math.max(...rates))} por mil.`;
+}
+
+function renderExterior(data) {
+  const ext = data.exterior, bound = data.confidence?.exterior;
+  if (!ext || !Number.isInteger(ext.sections) || !bound) {
+    $('exterior-summary').textContent = 'Os dados do exterior não estão nesta coleta.';
+    return;
+  }
+  const local = ext.lastVoteHourLocal || {};
+  const after18 = sectionsFrom(local, 18);
+  const late = ext.post17to19 + ext.after19;
+  $('exterior-summary').textContent = `Os arquivos de ${formatInt(bound.receivedBefore17BRT)} das ${formatInt(bound.sections)} seções do exterior chegaram ao TSE antes das 17h de Brasília. Em ${formatInt(ext.citiesReceivedBefore17BRT)} das ${formatInt(ext.cities)} cidades com seções, todas já tinham votado e enviado os arquivos quando as urnas fecharam no Brasil. Nas ${formatInt(ext.sections)} seções reconciliadas, ${formatInt(late)} votos (${formatRate(ext.total ? late / ext.total * 1000 : 0)} por mil) foram concluídos depois das 17h locais${after18 ? `, e ${formatInt(after18)} seções ainda votavam às 18h locais` : ', e nenhuma seção registrou voto às 18h locais ou depois'}. No pior caso, o exterior soma ${formatInt(bound.lateBoundBRT)} votos depois das 17h de Brasília: todos os votos das seções que enviaram os arquivos mais tarde, a maior parte nas Américas, onde as 17h locais caem depois das 17h de Brasília.`;
+}
+
+function renderExtensionAnalysis(data, baseline) {
   const coverage = data.coverage, totals = data.national;
   if (data.schemaVersion !== 1 || !coverage || !totals
       || !['ok', 'pending', 'aggregated', 'failed', 'excluded', 'unreconciled', 'enumeratedSections',
         'areasExpected', 'areasEnumerated'].every(k => Number.isInteger(coverage[k]) && coverage[k] >= 0)
-      || coverage.ok !== totals.sections
+      || coverage.ok !== totals.sections + (data.exterior?.sections || 0)
       || coverage.ok + coverage.pending + coverage.aggregated + coverage.failed + coverage.excluded
         + coverage.unreconciled !== coverage.enumeratedSections
       || !['total', 'pre17', 'post17to19', 'after19'].every(k => Number.isInteger(totals[k]) && totals[k] >= 0)
@@ -382,7 +453,7 @@ function renderExtensionAnalysis(data) {
   $('extension-late').textContent = coverage.ok
     ? `${formatInt(totals.post17to19 + totals.after19)} de ${formatInt(totals.total)}` : 'Aguardando a coleta';
   $('extension-late-note').textContent = coverage.ok
-    ? `Votos concluídos depois das 17h nas ${formatInt(coverage.ok)} seções cujo log bate com o BU. O detalhamento está abaixo.`
+    ? `Votos concluídos depois das 17h nas ${formatInt(totals.sections)} seções do Brasil cujo log bate com o BU. É o teto do efeito da prorrogação: inclui quem estava na fila às 17h.`
     : 'Soma dos logs das seções cujo total bate com o BU. O detalhamento está abaixo.';
   const withFiles = coverage.enumeratedSections - coverage.aggregated;
   $('analysis-coverage').textContent = `${formatInt(coverage.ok)} de ${formatInt(withFiles)} seções com arquivos próprios já reconciliadas (${formatPct(withFiles ? coverage.ok / withFiles * 100 : 0, 1)}), nas ${coverage.areasEnumerated} de ${coverage.areasExpected} áreas do catálogo. Outras ${formatInt(coverage.aggregated)} seções foram agregadas a uma seção principal e entram pelo BU dela. Pendentes: ${formatInt(coverage.pending)}. Falhas de download: ${formatInt(coverage.failed)}. Excluídas: ${formatInt(coverage.excluded)}. Log diferente do BU: ${formatInt(coverage.unreconciled)}.`;
@@ -409,9 +480,11 @@ function renderExtensionAnalysis(data) {
   $('analysis-bounds').textContent = `Sem supor nada sobre a preferência de quem votou tarde, a margem de Lula sobre Flávio Bolsonaro no cenário até 17h ficaria entre ${formatInt(totals.marginBounds[0])} e ${formatInt(totals.marginBounds[1])} votos nessas seções. São os extremos possíveis dado o BU de cada seção, não um intervalo de confiança.`;
   $('analysis-areas').innerHTML = Object.entries(coverage.byUF).filter(([uf]) => /^[A-Z]{2}$/.test(uf))
     .sort(([a], [b]) => a.localeCompare(b)).map(([uf, counts]) => {
-      const group = data.byUF[uf];
+      // The exterior row counts in each urn's local clock, not Brasília time.
+      const abroad = uf === 'ZZ', group = abroad ? data.exterior : data.byUF[uf];
       const total = Object.entries(counts).reduce((sum, [status, n]) => sum + (status === 'aggregated' ? 0 : n), 0);
-      return `<tr><th scope="row">${uf}</th><td>${formatInt(counts.ok || 0)} / ${formatInt(total)}</td><td>${formatInt(group?.pre17 || 0)}</td><td>${formatInt(group?.post17to19 || 0)}</td><td>${formatInt(group?.after19 || 0)}</td></tr>`;
+      const rate = group?.total ? formatRate((group.post17to19 + group.after19) / group.total * 1000) : '';
+      return `<tr><th scope="row">${abroad ? 'Exterior (hora local)' : uf}</th><td>${formatInt(counts.ok || 0)} / ${formatInt(total)}</td><td>${formatInt(group?.pre17 || 0)}</td><td>${formatInt(group?.post17to19 || 0)}</td><td>${formatInt(group?.after19 || 0)}</td><td>${rate}</td><td>${formatInt(sectionsFrom(abroad ? group?.lastVoteHourLocal : group?.lastVoteHourBRT, 18))}</td></tr>`;
     }).join('');
   const hours = Object.entries(totals.lastVoteHourBRT || {})
     .filter(([hour, count]) => /^\d{1,2}$/.test(hour) && Number(hour) < 24 && Number.isInteger(count))
@@ -421,15 +494,18 @@ function renderExtensionAnalysis(data) {
   $('analysis-histogram-note').textContent = known
     ? `Em ${formatInt(before17)} de ${formatInt(known)} seções (${formatPct(before17 / known * 100, 1)}), o último voto foi registrado antes das 17h.`
     : 'Nenhuma seção reconciliada tem horário do último voto ainda.';
-  $('analysis-histogram').innerHTML = hours
-    .map(([hour, count]) => `<tr><th scope="row">${hour.padStart(2, '0')}:00 a ${hour.padStart(2, '0')}:59</th><td>${formatInt(count)}</td></tr>`).join('');
+  renderApplied(data);
+  renderBaseline(totals, baseline);
+  renderExterior(data);
 }
 
 async function loadExtensionAnalysis() {
   try {
+    // The 1st-round sample is only a comparison; the analysis renders without it.
+    const baseline = fetch('./data/first-round-baseline.json').then(r => r.ok ? r.json() : null).catch(() => null);
     const response = await fetch(`./data/extension-analysis.json?v=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    renderExtensionAnalysis(await response.json());
+    renderExtensionAnalysis(await response.json(), await baseline);
   } catch (error) {
     $('analysis-content').hidden = true;
     $('analysis-status').textContent = 'Não foi possível carregar a análise reconciliada. Tente recarregar a página; a totalização principal continua independente desta coleta.';

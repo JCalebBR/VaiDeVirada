@@ -73,7 +73,16 @@ de 25-26/10/2026:
   urnas, nao da votacao.
 - O relogio do log esta no fuso local. AC e 13 municipios do oeste do AM
   usam UTC-5; AM restante, RO, RR, MT e MS usam UTC-4; Fernando de Noronha
-  UTC-2. O exterior (`zz`) fica excluido.
+  UTC-2.
+- Exterior (`zz`): o relogio do log e o local, com horario de verao aplicado
+  quando a urna liga, antes do primeiro voto; por isso so um ajuste de relogio
+  depois do primeiro voto exclui a secao. O BU do exterior nao tem o campo
+  opcional `[1]` entre comparecimento e eleicoes (9 campos em vez de 10).
+  Secoes apuradas em cedula trazem `busa`/`logsa` e nao tem log de voto.
+- O catalogo `config/{uf}/{uf}-p003221-cs.json` traz `da`/`ha` por secao: a
+  chegada dos arquivos, em horario de Brasilia (Toquio 06h31, Wellington
+  01h51, Lisboa 14h31, Los Angeles 21h12). Antes das 17h, nenhum voto da secao
+  pode ser posterior as 17h BRT.
 
 Status no checkpoint: `ok`, `pending`, `aggregated`, `failed` (rede/HTTP),
 `excluded` (motivo em `.cache/urna-logs/absences.jsonl`) e `unreconciled`

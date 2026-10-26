@@ -37,7 +37,7 @@ def seq(*values, tag=48):
     return tlv(tag, b''.join(values))
 
 
-def synthetic_bu(election=6258, mun=20516, zone=64, section=427, total=10, votes=(6, 2, 1, 1)):
+def synthetic_bu(election=6258, mun=20516, zone=64, section=427, total=10, votes=(6, 2, 1, 1), exterior=False):
     rows = []
     for code, count in zip(('13', '22', 'blank', 'null'), votes):
         kind = 1 if code.isdigit() else {'blank': 2, 'null': 3}[code]
@@ -49,7 +49,7 @@ def synthetic_bu(election=6258, mun=20516, zone=64, section=427, total=10, votes
     body = seq(seq(), number(2, 10), seq(),
                seq(seq(number(mun), number(zone)), number(1), number(section)),
                tlv(27, b'20261025T170000'), seq(tag=160), number(total),
-               seq(tag=161), seq(result), seq())
+               *(() if exterior else (seq(tag=161),)), seq(result), seq())
     return seq(seq(), number(2, 10), seq(tag=160), number(1, 10), tlv(4, body))
 
 
@@ -72,8 +72,11 @@ class LogTests(unittest.TestCase):
         self.assertEqual(collector.utc_offset('ms', 'CAMPO GRANDE'), -4)
         self.assertEqual(collector.utc_offset('pe', 'FERNANDO DE NORONHA'), -2)
         self.assertEqual(collector.utc_offset('pb', 'JOAO PESSOA'), -3)
-        with self.assertRaisesRegex(collector.Excluded, 'exterior'):
-            collector.utc_offset('zz', 'LISBOA')
+        self.assertIsNone(collector.utc_offset('zz', 'LISBOA'))
+
+    def test_exterior_keeps_local_clock(self):
+        counts = collector.parse_log(archive([(collector.DAY, '16:59:00'), (collector.DAY, '17:20:00')]), None)
+        self.assertEqual((counts['pre17'], counts['post17to19'], counts['lastVoteHourBRT']), (1, 1, 17))
 
     def test_strict_module_and_message(self):
         extra = f'{collector.DAY} 18:01:00\tINFO\t123\tOTHER\t{collector.EVENT}\tx'
@@ -86,7 +89,15 @@ class LogTests(unittest.TestCase):
             collector.parse_log(archive([(collector.DAY, '17:01:00'),
                                         (collector.DAY, '17:00:00')]), -3)
         with self.assertRaisesRegex(collector.Excluded, 'adjustment'):
-            collector.parse_log(archive([], collector.DAY + ' 16:00:00\tAjuste de hor\u00e1rio'), -3)
+            collector.parse_log(archive([(collector.DAY, '15:00:00')],
+                                        collector.DAY + ' 16:00:00\tAjuste de hor\u00e1rio'), -3)
+        # Daylight saving applied at boot, before any vote, does not move vote times.
+        boot = '\n'.join([f'{collector.DAY} 06:00:00\tINFO\t123\tGAP\tHor\u00e1rio da urna alterado devido a hor\u00e1rio de ver\u00e3o\tx',
+                          f'{collector.DAY} 09:00:00\tINFO\t123\tVOTA\t{collector.EVENT}\tx'])
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as zipped:
+            zipped.writestr('logd.dat', boot.encode('latin-1'))
+        self.assertEqual(collector.parse_log(buffer.getvalue(), None)['total'], 1)
         with self.assertRaises(ValueError):
             collector.parse_log(archive([(collector.DAY, '25:00:00')]), -3)
 
@@ -126,6 +137,17 @@ class BulletinTests(unittest.TestCase):
         with self.assertRaisesRegex(collector.Excluded, 'partition'):
             collector.reconcile({**log, 'pre17': 7}, bu)
 
+    def test_exterior_bu_without_optional_field(self):
+        # Exterior BUs lack the empty [1] node Brazilian BUs carry between turnout and the elections.
+        self.assertEqual(collector.parse_bu(synthetic_bu(exterior=True), '20516', '0064', '0427')['total'], 10)
+
+    def test_paper_ballot_sections_are_excluded(self):
+        aux = {'hashes': [{'hash': 'abc', 'arq': [{'nm': 'x-busa.dat', 'tp': 'busa'},
+                                                   {'nm': 'x-logsa.jez', 'tp': 'logsa'}]}]}
+        status, detail = collector.collect_one(('zz', '29173', '0001', '0494'), 'KATMANDU',
+                                               lambda _: json.dumps(aux).encode())
+        self.assertEqual((status, detail['reason']), ('excluded', 'paper_ballot_sa'))
+
     def test_multiple_urn_sets_excluded_not_chosen(self):
         fetch = lambda _: json.dumps({'hashes': [{}, {}]}).encode()
         status, detail = collector.collect_one(('pb', '20516', '0064', '0427'), 'JOAO PESSOA', fetch)
@@ -156,6 +178,22 @@ class AggregationTests(unittest.TestCase):
         self.assertEqual(output['byMunicipality']['PB/20516']['post17to19'], 3)
         self.assertIsNone(collector.summarize([])['national']['estimatedWinner'])
 
+    def test_exterior_stays_out_of_brasilia_sums(self):
+        row = dict(total=10, pre17=9, at17=0, post17to19=1, after19=0,
+                   votes={'13': 6, '22': 2, 'blank': 1, 'null': 1}, lastVoteHourBRT=17)
+        output = collector.summarize([('pb', '20516', row), ('zz', '29955', row)])
+        self.assertEqual(output['national']['sections'], 1)
+        self.assertNotIn('ZZ', output['byUF'])
+        self.assertEqual(output['exterior']['sections'], 1)
+        self.assertEqual(output['exterior']['lastVoteHourLocal'], {'17': 1})
+
+    def test_exterior_bound_uses_arrival_time_not_offsets(self):
+        sections = [('ok', f'{collector.DAY} 14:31:04', 300), ('excluded', f'{collector.DAY} 06:00:00', None),
+                    ('ok', f'{collector.DAY} 21:12:49', 250), ('excluded', None, None)]
+        self.assertEqual(collector.exterior_bound(sections, 500),
+                         {'sections': 4, 'receivedBefore17BRT': 2, 'lateBoundBRT': 750})
+        self.assertFalse(collector.received_before_17('04/10/2026 10:00:00'))
+
     def test_margin_bounds_against_all_feasible_assignments(self):
         for a in range(4):
             for b in range(4):
@@ -179,8 +217,10 @@ class AggregationTests(unittest.TestCase):
                 {'cd': '64', 'sec': [{'ns': '427', 'nsa': ['428']}, {'ns': '427'},
                                      {'ns': '428', 'nsp': '427'}]}]}]}]}
         self.assertEqual(collector.enumerate_sections(payload, 'pb'),
-                         [(('pb', '20516', '0064', '0427'), 'JOAO PESSOA', None),
-                          (('pb', '20516', '0064', '0428'), 'JOAO PESSOA', '0427')])
+                         [(('pb', '20516', '0064', '0427'), 'JOAO PESSOA', None, None),
+                          (('pb', '20516', '0064', '0428'), 'JOAO PESSOA', '0427', None)])
+        payload['abr'][0]['mu'][0]['zon'][0]['sec'] = [{'ns': '427', 'da': collector.DAY, 'ha': '14:31:04'}]
+        self.assertEqual(collector.enumerate_sections(payload, 'pb')[0][3], f'{collector.DAY} 14:31:04')
         with self.assertRaises(collector.Excluded):
             collector.enumerate_sections({**payload, 'cdp': '6258'}, 'pb')
 
@@ -272,6 +312,7 @@ class AggregationTests(unittest.TestCase):
         official = {'candidates': {'13': {'votes': 1_000_000}, '22': {'votes': 900_000}},
                     'counted': '100,00'}
         result = collector.confidence(byUF, denominators, official, rate_per_minute=100)
+        self.assertEqual((result['kind'], result['level']), ('sample', .999))
         self.assertTrue(result['answered'])
         self.assertTrue(result['marginFinal'])
         self.assertEqual(result['lateEstimate'], 1500)
@@ -281,6 +322,12 @@ class AggregationTests(unittest.TestCase):
         self.assertFalse(result['answered'])
         self.assertFalse(result['marginFinal'])
         self.assertIsNone(collector.confidence(byUF, denominators, None))
+        census = collector.confidence(byUF, {'PB': {'ok': 100, 'excluded': 1}}, official,
+                                      exterior=[('ok', f'{collector.DAY} 21:00:00', 200)])
+        self.assertEqual((census['kind'], census['level']), ('census', None))
+        self.assertEqual(census['lateEstimate'], 150)
+        self.assertEqual(census['worstCaseNonRandom'], 300 + 200)
+        self.assertEqual(census['lateUpper'], 150 + 500)
 
     def test_pool_processes_every_pending_section(self):
         with tempfile.TemporaryDirectory() as tmp:

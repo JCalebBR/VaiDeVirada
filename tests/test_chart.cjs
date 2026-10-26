@@ -127,7 +127,19 @@ test('forecast, first-round mode and bulletin analysis controls', async () => {
   assert.match(element('analysis-bounds').textContent, /não um intervalo de confiança/);
   assert.match(element('analysis-areas').innerHTML, /PB/);
   assert.match(element('analysis-histogram-note').textContent, /antes das 17h/);
-  assert.doesNotMatch(element('analysis-histogram').innerHTML, /[–—]/);
+  assert.doesNotMatch(element('applied-hours').innerHTML, /[–—]/);
+  assert.match(element('applied-hours').innerHTML, /Sem amostra/);
+  assert.match(element('applied-summary').textContent, /Às 18h ou depois, só/);
+  assert.match(element('extension-after18').textContent, / de /);
+  assert.match(element('exterior-summary').textContent, /antes das 17h de Brasília/);
+  assert.match(element('analysis-areas').innerHTML, /<td>\d+,\d\d<\/td>/);
+  assert.equal(element('extension-verdict-label').textContent, 'RESPOSTA / LIMITE DE PIOR CASO');
+  assert.match(element('analysis-confidence-detail').textContent, /Contagem completa/);
+  assert.doesNotMatch(element('analysis-confidence-detail').textContent, /99,9%/);
+  context.baselineFixture = JSON.parse(readFileSync(join(__dirname, '../data/first-round-baseline.json'), 'utf8'));
+  runInContext('renderExtensionAnalysis(analysisFixture, baselineFixture)', context);
+  assert.match(element('applied-baseline').textContent, /não houve prorrogação/);
+  assert.doesNotMatch(element('applied-hours').innerHTML, /Sem amostra/);
   const fmt = new Intl.NumberFormat('pt-BR');
   assert.equal(element('analysis-window').textContent, fmt.format(analysis.national.post17to19));
   assert.equal(element('extension-late').textContent,
@@ -167,9 +179,11 @@ test('forecast, first-round mode and bulletin analysis controls', async () => {
   }
   Object.assign(emptyAnalysis.coverage, { ok: 0, failed: 0, excluded: 0, unreconciled: 0, aggregated: 0,
     pending: emptyAnalysis.coverage.enumeratedSections });
+  delete emptyAnalysis.exterior;
   context.emptyFixture = emptyAnalysis;
   runInContext('renderExtensionAnalysis(emptyFixture)', context);
   assert.match(element('analysis-status').textContent, /zeros não representam o Brasil/);
+  assert.match(element('exterior-summary').textContent, /não estão nesta coleta/);
   await runInContext('loadExtensionAnalysis()', context);
   assert.equal(element('analysis-content').hidden, true);
   assert.match(element('analysis-status').textContent, /Não foi possível carregar/);
