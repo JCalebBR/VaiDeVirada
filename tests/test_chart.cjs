@@ -51,23 +51,28 @@ test('first-round hover interpolates the historical curve', () => {
   assert.equal(firstRoundDetailsAt(history, 20)['13'].votes, 180);
 });
 
-test('pointer in projected region shows forecast instead of snapping to last actual point', () => {
+test('forecast, first-round mode and bulletin analysis controls', async () => {
   const elements = new Map();
   const element = id => {
     if (!elements.has(id)) elements.set(id, {
       clientWidth: 800, clientHeight: 400, offsetWidth: 240, style: {},
       listeners: {}, classList: { toggle() {} },
+      attrs: {}, children: [], firstChild: { textContent: '' },
       addEventListener(event, handler) { this.listeners[event] = handler; },
-      setAttribute() {}, getBoundingClientRect: () => ({ left: 0 }),
+      setAttribute(name, value) { this.attrs[name] = value; },
+      getAttribute(name) { return this.attrs[name] ?? null; },
+      replaceChildren() { this.children = []; },
+      append(child) { this.children.push(child); },
+      getBoundingClientRect: () => ({ left: 0 }),
     });
     return elements.get(id);
   };
   const context = createContext({
-    document: { getElementById: element },
+    document: { getElementById: element, createElement: () => ({}) },
     window: { addEventListener() {} },
     setInterval() {},
     fetch: async () => { throw new Error('offline'); },
-    console: { error() {} },
+    URL, console: { error() {}, warn() {} },
   });
   runInContext(code, context);
   const history = [20, 40, 60].map((counted, index) => ({
@@ -106,4 +111,20 @@ test('pointer in projected region shows forecast instead of snapping to last act
   assert.match(element('chart').innerHTML, /stroke-dasharray="7 5"/);
   runInContext("setFirstMode('separate')", context);
   assert.equal(element('first-panel').hidden, false);
+  element('extension-toggle').listeners.click();
+  assert.equal(element('extension-panel').hidden, false);
+  assert.equal(element('extension-toggle').getAttribute('aria-expanded'), 'true');
+  element('extension-toggle').listeners.click();
+  assert.equal(element('extension-panel').hidden, true);
+  context.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      areasPublished: 1, areasExpected: 28,
+      datasetUrl: 'https://dadosabertos.tse.jus.br/dataset/resultados-2026-boletim-de-urna',
+      round2Bulletins: { AC: 'https://cdn.tse.jus.br/second.zip' },
+    }),
+  });
+  await runInContext('loadExtensionCatalog()', context);
+  assert.match(element('extension-bu-status').textContent, /1 de 28 áreas/);
+  assert.equal(element('extension-files').children[0].textContent, 'AC ↗');
 });

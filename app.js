@@ -260,7 +260,38 @@ function updateUI(data) {
   $('status-text').textContent = last.counted >= 99.99 ? 'APURAÇÃO CONCLUÍDA' : age > 20 * 60 * 1000 ? 'DADOS DESATUALIZADOS' : state.live ? 'AO VIVO · CONSULTA DIRETA AO TSE' : 'APURAÇÃO EM ANDAMENTO';
   $('updated').textContent = `TSE: ${dateFmt.format(new Date(last.at))} (Brasília) · ${data.history.length} registros`;
   $('source-link').href = data.round2Url;
+  const gap = Math.abs(last.candidates['13'].votes - last.candidates['22'].votes);
+  const leader = last.candidates['13'].votes > last.candidates['22'].votes ? 'Lula' : 'Flávio Bolsonaro';
+  $('extension-margin').textContent = gap ? `${formatInt(gap)} votos` : 'Empate';
+  $('extension-margin-note').textContent = `${leader} à frente em ${formatPct(last.counted)} das urnas. ${last.counted === 100 ? 'Margem na totalização completa.' : 'Margem provisória: urnas ainda não totalizadas.'}`;
   draw();
+}
+
+async function loadExtensionCatalog() {
+  try {
+    const response = await fetch(`./data/extension.json?v=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!Number.isInteger(data.areasPublished) || !Number.isInteger(data.areasExpected)) throw new Error('Catálogo incompleto');
+    $('extension-bu-status').textContent = data.areasPublished
+      ? `${data.areasPublished} de ${data.areasExpected} áreas com boletins do 2º turno no catálogo oficial do TSE.`
+      : `Nenhum arquivo de boletins do 2º turno neste catálogo (0 de ${data.areasExpected} áreas).`;
+    $('extension-dataset-link').href = data.datasetUrl;
+    const files = $('extension-files');
+    files.replaceChildren();
+    for (const [area, link] of Object.entries(data.round2Bulletins || {})) {
+      if (!/^[A-Z]{2}$/.test(area) || new URL(link).hostname !== 'cdn.tse.jus.br') continue;
+      const anchor = document.createElement('a');
+      anchor.href = link;
+      anchor.textContent = `${area} ↗`;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      files.append(anchor);
+    }
+  } catch (error) {
+    $('extension-bu-status').textContent = 'Não foi possível consultar a disponibilidade dos boletins agora. Consulte o catálogo do TSE.';
+    console.warn('Falha ao obter disponibilidade de boletins:', error);
+  }
 }
 
 function appendObserved(data, snapshot) {
@@ -347,6 +378,13 @@ $('linear').addEventListener('click', () => setScale('linear'));
 $('log').addEventListener('click', () => setScale('log'));
 $('first-separate').addEventListener('click', () => setFirstMode('separate'));
 $('first-overlay').addEventListener('click', () => setFirstMode('overlay'));
+$('extension-toggle').addEventListener('click', () => {
+  const button = $('extension-toggle');
+  const open = button.getAttribute('aria-expanded') !== 'true';
+  button.setAttribute('aria-expanded', String(open));
+  $('extension-panel').hidden = !open;
+  button.firstChild.textContent = open ? 'Fechar análise ' : 'Explorar a questão ';
+});
 function setScale(scale) {
   state.scale = scale;
   for (const kind of ['linear', 'log']) {
@@ -405,5 +443,7 @@ $('first-chart-wrap').addEventListener('wheel', e => {
 }, { passive: false });
 window.addEventListener('resize', draw);
 load();
+loadExtensionCatalog();
 setInterval(load, 90_000);
 setInterval(loadLive, 30_000);
+setInterval(loadExtensionCatalog, 90_000);

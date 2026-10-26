@@ -14,6 +14,12 @@ Na interface, o 1º turno aparece por padrão em uma faixa separada com linhas c
 
 O hover mostra votos e porcentagens por candidato em ambos os turnos. Nos registros arquivados do 1º turno, valores entre capturas são interpolados. Na projeção do 2º turno, o número de votos é **estimado**, não observado: calcula-se o total de votos válidos no percentual apontado multiplicando o total válido do último registro por `(urnas apontadas / urnas do último registro)` e aplica-se a participação projetada de cada candidato. Isso supõe ritmo constante de votos válidos por urna, apenas para leitura exploratória.
 
+## A questão das 17h às 19h
+
+A seção recolhível não atribui votos a candidatos sem evidência. A pergunta sobre o encerramento às 17h em 25/10/2026 não permite tratar todas as seções como se tivessem continuado a votar até as 19h. [Logs de urna contêm horário de votação, mas não o candidato escolhido](https://speedurna.furious.pro/sobre); boletins de urna (BU) contêm totais por seção, mas não horário de cada voto. Transmissão/totalização após as 17h não identifica voto depositado após as 17h. O [catálogo oficial de BU](https://dadosabertos.tse.jus.br/dataset/resultados-2026-boletim-de-urna) é consultado pelo workflow; `data/extension.json` guarda quais arquivos do 2º turno já foram publicados por UF e exterior. A seção atualiza essa disponibilidade sem refresh, mas **não** apresenta contagens de votos após 17h enquanto não houver cobertura de logs verificada.
+
+Mesmo sem associação de horário a candidato, logs completos poderiam eventualmente estabelecer um limite: se o total de votações concluídas após 17h for menor que a margem **final** entre os candidatos, retirá-las não poderia mudar o vencedor. Se não for, os dados agregados ainda não permitem distribuir escolhas por horário. A margem exibida pela página é explicitamente provisória até que 100% das urnas sejam totalizadas.
+
 ## Publicação
 
 Repositório público no GitHub, branch padrão `main`. Em **Settings → Pages → Build and deployment**, selecione **GitHub Actions**. O workflow `.github/workflows/pages.yml` também pode ser iniciado em **Actions → Collect and publish election data → Run workflow**. O workflow precisa de permissão para escrever no repositório (concedida via `permissions: contents: write`; configurações da organização podem restringir). Os arquivos publicados são HTML/CSS/JS estáticos, sem backend, credenciais ou dependências de build.

@@ -5,6 +5,18 @@ from scripts.update import extract, merge
 
 
 class ElectionDataTest(unittest.TestCase):
+    def test_second_round_bulletin_catalog_filter(self):
+        from scripts.update_extension import summarize
+        sample = [
+            {'name': 'AC - Boletim de Urna - Primeiro turno', 'url': 'https://example.com/first.zip'},
+            {'name': 'AC - Hash SHA2 - Segundo turno', 'url': 'https://example.com/hash'},
+            {'name': 'AC - Boletim de Urna - Segundo turno - 26.10.2026',
+             'url': 'https://cdn.tse.jus.br/second.zip'},
+        ]
+        data = summarize(sample)
+        self.assertEqual(data['areasPublished'], 1)
+        self.assertEqual(data['round2Bulletins']['AC'], 'https://cdn.tse.jus.br/second.zip')
+
     def test_first_round_curve_ends_at_official_result(self):
         data_dir = Path(__file__).resolve().parents[1] / 'data'
         data = json.loads((data_dir / 'first-round-history.json').read_text())['history']
