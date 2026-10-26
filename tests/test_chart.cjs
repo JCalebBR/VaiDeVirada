@@ -141,6 +141,8 @@ test('forecast, first-round mode and bulletin analysis controls', async () => {
   answered.confidence = { margin: 4_430_191, lateEstimate: 21_130, lateUpper: 348_442, sampleSections: 10_106,
     answered: true, marginFinal: true };
   answered.official.winner = '13';
+  answered.coverage = { ...answered.coverage, pending: 10_000,
+    enumeratedSections: answered.coverage.enumeratedSections - answered.coverage.pending + 10_000 };
   context.answeredFixture = answered;
   runInContext('renderExtensionAnalysis(answeredFixture)', context);
   assert.match(element('analysis-progress-text').textContent, /Término previsto/);
