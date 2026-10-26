@@ -922,6 +922,24 @@
           "percentage": 51.770973682
         }
       }
+    },
+    {
+      "id": "4218186",
+      "at": "2026-10-25T21:49:52-03:00",
+      "counted": 99.949924687,
+      "validVotes": 124025657,
+      "candidates": {
+        "22": {
+          "name": "Flavio Bolsonaro",
+          "votes": 59807091,
+          "percentage": 48.221547417
+        },
+        "13": {
+          "name": "Lula",
+          "votes": 64218566,
+          "percentage": 51.778452583
+        }
+      }
     }
   ],
   "round2Url": "https://resultados.tse.jus.br/oficial/ele2026/6258/dados/br/br-c0001-e006258-u.json",
