@@ -51,6 +51,7 @@ jobs:
           cp data/first-round-history.json dist/data/
           cp data/extension.json dist/data/
           cp data/extension-analysis.json dist/data/
+          cp data/first-round-baseline.json dist/data/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
