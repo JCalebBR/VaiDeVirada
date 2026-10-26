@@ -294,6 +294,149 @@ async function loadExtensionCatalog() {
   }
 }
 
+const CANDIDATE_NAMES = { '13': 'Lula', '22': 'Flávio Bolsonaro' };
+
+function validDate(value) {
+  const date = value ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime()) ? date : null;
+}
+
+function renderCollectionProgress(coverage, progress, generatedAt) {
+  const withFiles = coverage.enumeratedSections - coverage.aggregated;
+  const done = withFiles - coverage.pending;
+  const pct = withFiles ? done / withFiles * 100 : 0;
+  $('analysis-progress-bar').style.width = `${pct.toFixed(2)}%`;
+  $('analysis-progress').setAttribute('aria-valuenow', pct.toFixed(1));
+  const updated = validDate(progress?.updatedAt) || generatedAt;
+  const head = `${formatInt(done)} de ${formatInt(withFiles)} seções processadas (${formatPct(pct, 1)}).`;
+  const eta = validDate(progress?.etaCompleteAt);
+  const rate = Number.isFinite(progress?.sectionsPerMinute) ? progress.sectionsPerMinute : null;
+  // Snapshots are pushed every 15 min and deployed by a delayed cron; an hour without news means stopped.
+  const stale = Date.now() - updated.getTime() > 60 * 60_000;
+  let detail;
+  if (!coverage.pending) detail = 'Coleta concluída.';
+  else if (progress?.state === 'blocked') detail = `A coleta parou em ${dateFmt.format(updated)} depois de um sinal de bloqueio do TSE e precisa ser retomada manualmente.`;
+  else if (progress?.state === 'running' && !stale) {
+    detail = `Coleta em andamento${rate ? `, ${formatInt(Math.round(rate))} seções por minuto` : ''}.`
+      + (eta ? ` Término previsto: ${dateFmt.format(eta)}.` : '')
+      + ' Esta página recebe um retrato novo a cada 15 minutos, aproximadamente.';
+  } else detail = `Coleta parada; última atualização em ${dateFmt.format(updated)}.`;
+  $('analysis-progress-text').textContent = `${head} ${detail}`;
+}
+
+function renderConfidence(confidence, official, sampling) {
+  const valid = confidence && ['margin', 'lateEstimate', 'lateUpper', 'sampleSections']
+    .every(k => Number.isFinite(confidence[k]) && confidence[k] >= 0);
+  const winner = CANDIDATE_NAMES[official?.winner];
+  const label = $('extension-verdict-label'), answer = $('extension-verdict-answer');
+  if (!valid || !winner) {
+    $('analysis-confidence-answer').textContent = 'Sem estimativa nacional ainda.';
+    $('analysis-confidence-detail').textContent = 'A estimativa precisa da totalização oficial e de seções reconciliadas em todas as UFs.';
+    return false;
+  }
+  const provisional = confidence.marginFinal ? '' : ' A margem usada ainda é provisória, porque a totalização não chegou a 100%.';
+  const numbers = `Estimamos ${formatInt(confidence.lateEstimate)} votos concluídos depois das 17h no país inteiro; com 99,9% de confiança, no máximo ${formatInt(confidence.lateUpper)}. A margem final é de ${formatInt(confidence.margin)} votos.`;
+  const ordered = Number.isInteger(sampling?.catalogOrderSections) ? Math.min(sampling.catalogOrderSections, confidence.sampleSections) : 0;
+  const drawn = ordered
+    ? `${formatInt(confidence.sampleSections)} seções reconciliadas; as primeiras ${formatInt(ordered)} processadas seguiram a ordem do catálogo, e as seguintes foram sorteadas dentro de cada UF`
+    : `${formatInt(confidence.sampleSections)} seções sorteadas dentro de cada UF`;
+  const basis = ` A conta usa ${drawn}. Exterior, seções excluídas e falhas entram como se todos os seus votos fossem tardios.`;
+  if (confidence.answered) {
+    const text = `Sem os votos depois das 17h, ${winner} venceria do mesmo jeito.`;
+    $('analysis-confidence-answer').textContent = text;
+    $('analysis-confidence-detail').textContent = `${numbers} Mesmo que todos os votos tardios fossem para ${winner}, retirá-los não apagaria a vantagem.${basis}${provisional}`;
+    label.textContent = 'RESPOSTA COM 99,9% DE CONFIANÇA';
+    answer.textContent = text;
+    return true;
+  }
+  const eta = validDate(confidence.etaAnsweredAt);
+  const when = eta ? ` Previsão para responder com 99,9% de confiança: ${dateFmt.format(eta)}, com cerca de ${formatInt(confidence.sectionsNeeded)} seções.`
+    : ' Com os dados atuais, só a coleta completa vai responder.';
+  $('analysis-confidence-answer').textContent = 'Ainda não dá para responder com 99,9% de confiança.';
+  $('analysis-confidence-detail').textContent = `${numbers}${when}${basis}${provisional}`;
+  return false;
+}
+
+function renderExtensionAnalysis(data) {
+  const coverage = data.coverage, totals = data.national;
+  if (data.schemaVersion !== 1 || !coverage || !totals
+      || !['ok', 'pending', 'aggregated', 'failed', 'excluded', 'unreconciled', 'enumeratedSections',
+        'areasExpected', 'areasEnumerated'].every(k => Number.isInteger(coverage[k]) && coverage[k] >= 0)
+      || coverage.ok !== totals.sections
+      || coverage.ok + coverage.pending + coverage.aggregated + coverage.failed + coverage.excluded
+        + coverage.unreconciled !== coverage.enumeratedSections
+      || !['total', 'pre17', 'post17to19', 'after19'].every(k => Number.isInteger(totals[k]) && totals[k] >= 0)
+      || totals.pre17 + totals.post17to19 + totals.after19 !== totals.total) {
+    throw new Error('Cobertura ou contagens inconsistentes');
+  }
+  for (const n of ['13', '22', 'blank', 'null']) {
+    if (![totals.votes[n], totals.estimatedWindow[n], totals.estimatedRemoved[n]]
+      .every(v => Number.isFinite(v) && v >= 0)) throw new Error('Estimativas inválidas');
+  }
+  if (!Number.isFinite(new Date(data.generatedAt).getTime())) throw new Error('Data da coleta inválida');
+  const rounded = n => formatInt(Math.round(n));
+  $('analysis-content').hidden = false;
+  $('analysis-status').textContent = `Coleta atualizada em ${dateFmt.format(new Date(data.generatedAt))} (Brasília). ${!coverage.ok ? 'Nenhuma seção reconciliada ainda; os zeros não representam o Brasil.' : coverage.pending ? 'As somas abaixo cobrem só as seções já processadas; a única projeção para o país é a estimativa de votos tardios.' : 'Todas as seções do catálogo foram processadas.'}`;
+  renderCollectionProgress(coverage, data.progress, new Date(data.generatedAt));
+  $('analysis-window').textContent = formatInt(totals.post17to19);
+  $('extension-late').textContent = coverage.ok
+    ? `${formatInt(totals.post17to19 + totals.after19)} de ${formatInt(totals.total)}` : 'Aguardando a coleta';
+  $('extension-late-note').textContent = coverage.ok
+    ? `Votos concluídos depois das 17h nas ${formatInt(coverage.ok)} seções cujo log bate com o BU. O detalhamento está abaixo.`
+    : 'Soma dos logs das seções cujo total bate com o BU. O detalhamento está abaixo.';
+  const withFiles = coverage.enumeratedSections - coverage.aggregated;
+  $('analysis-coverage').textContent = `${formatInt(coverage.ok)} de ${formatInt(withFiles)} seções com arquivos próprios já reconciliadas (${formatPct(withFiles ? coverage.ok / withFiles * 100 : 0, 1)}), nas ${coverage.areasEnumerated} de ${coverage.areasExpected} áreas do catálogo. Outras ${formatInt(coverage.aggregated)} seções foram agregadas a uma seção principal e entram pelo BU dela. Pendentes: ${formatInt(coverage.pending)}. Falhas de download: ${formatInt(coverage.failed)}. Excluídas: ${formatInt(coverage.excluded)}. Log diferente do BU: ${formatInt(coverage.unreconciled)}.`;
+  $('analysis-candidates').textContent = `Divisão estimada desses votos pela proporção do BU de cada seção: Lula ${rounded(totals.estimatedWindow['13'])}, Flávio Bolsonaro ${rounded(totals.estimatedWindow['22'])}, brancos ${rounded(totals.estimatedWindow.blank)}, nulos ${rounded(totals.estimatedWindow.null)}. Depois das 19h há mais ${formatInt(totals.after19)} votos, também retirados no cenário até 17h. Os valores arredondados podem não fechar a soma.`;
+  const official = data.official;
+  let nationalRow = '<tr><th scope="row">Nacional observado</th><td colspan="2">Totalização indisponível nesta coleta</td></tr>';
+  if (official && ['13', '22'].every(n => Number.isInteger(official.candidates?.[n]?.votes) && official.candidates[n].votes >= 0)) {
+    const counted = Number(String(official.counted).replace(',', '.'));
+    if (!Number.isFinite(counted) || counted < 0 || counted > 100) throw new Error('Totalização inválida');
+    nationalRow = `<tr><th scope="row">Nacional observado (${formatPct(counted)} das urnas${counted < 100 ? ', provisório' : ''})</th><td>${formatInt(official.candidates['13'].votes)}</td><td>${formatInt(official.candidates['22'].votes)}</td></tr>`;
+  }
+  $('analysis-comparison').innerHTML = nationalRow
+    + `<tr><th scope="row">BU das seções cobertas</th><td>${formatInt(totals.votes['13'])}</td><td>${formatInt(totals.votes['22'])}</td></tr>`
+    + `<tr><th scope="row">Cenário até 17h, mesmas seções</th><td>${rounded(totals.estimatedUntil17['13'])}</td><td>${rounded(totals.estimatedUntil17['22'])}</td></tr>`;
+  const subsetLeader = CANDIDATE_NAMES[totals.estimatedWinner];
+  const complete = coverage.pending === 0;
+  if (!renderConfidence(data.confidence, official, data.sampling)) {
+    $('extension-verdict-label').textContent = 'RESPOSTA ATÉ AGORA';
+    $('extension-verdict-answer').textContent = `Ainda sem resposta para o Brasil inteiro: ${formatPct(withFiles ? (withFiles - coverage.pending) / withFiles * 100 : 0, 1)} das seções processadas.`;
+  }
+  $('analysis-verdict').textContent = !coverage.ok
+    ? 'Ainda não há seções reconciliadas, então não há cenário até 17h.'
+    : `${subsetLeader ? `No cenário até 17h, ${subsetLeader} fica à frente por ${rounded(totals.estimatedMargin)} votos` : 'O cenário até 17h termina empatado'} nas seções reconciliadas. ${complete ? 'A coleta terminou; as seções fora da soma estão contadas acima.' : 'A coleta ainda está em andamento, e este resultado pode mudar até o fim.'}`;
+  $('analysis-bounds').textContent = `Sem supor nada sobre a preferência de quem votou tarde, a margem de Lula sobre Flávio Bolsonaro no cenário até 17h ficaria entre ${formatInt(totals.marginBounds[0])} e ${formatInt(totals.marginBounds[1])} votos nessas seções. São os extremos possíveis dado o BU de cada seção, não um intervalo de confiança.`;
+  $('analysis-areas').innerHTML = Object.entries(coverage.byUF).filter(([uf]) => /^[A-Z]{2}$/.test(uf))
+    .sort(([a], [b]) => a.localeCompare(b)).map(([uf, counts]) => {
+      const group = data.byUF[uf];
+      const total = Object.entries(counts).reduce((sum, [status, n]) => sum + (status === 'aggregated' ? 0 : n), 0);
+      return `<tr><th scope="row">${uf}</th><td>${formatInt(counts.ok || 0)} / ${formatInt(total)}</td><td>${formatInt(group?.pre17 || 0)}</td><td>${formatInt(group?.post17to19 || 0)}</td><td>${formatInt(group?.after19 || 0)}</td></tr>`;
+    }).join('');
+  const hours = Object.entries(totals.lastVoteHourBRT || {})
+    .filter(([hour, count]) => /^\d{1,2}$/.test(hour) && Number(hour) < 24 && Number.isInteger(count))
+    .sort(([a], [b]) => Number(a) - Number(b));
+  const known = totals.lastVoteHourKnownSections || 0;
+  const before17 = hours.reduce((sum, [hour, count]) => sum + (Number(hour) < 17 ? count : 0), 0);
+  $('analysis-histogram-note').textContent = known
+    ? `Em ${formatInt(before17)} de ${formatInt(known)} seções (${formatPct(before17 / known * 100, 1)}), o último voto foi registrado antes das 17h.`
+    : 'Nenhuma seção reconciliada tem horário do último voto ainda.';
+  $('analysis-histogram').innerHTML = hours
+    .map(([hour, count]) => `<tr><th scope="row">${hour.padStart(2, '0')}:00 a ${hour.padStart(2, '0')}:59</th><td>${formatInt(count)}</td></tr>`).join('');
+}
+
+async function loadExtensionAnalysis() {
+  try {
+    const response = await fetch(`./data/extension-analysis.json?v=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    renderExtensionAnalysis(await response.json());
+  } catch (error) {
+    $('analysis-content').hidden = true;
+    $('analysis-status').textContent = 'Não foi possível carregar a análise reconciliada. Tente recarregar a página; a totalização principal continua independente desta coleta.';
+    console.warn('Falha na análise de logs:', error);
+  }
+}
+
 function appendObserved(data, snapshot) {
   const history = data.history;
   const last = history.at(-1);
@@ -444,6 +587,8 @@ $('first-chart-wrap').addEventListener('wheel', e => {
 window.addEventListener('resize', draw);
 load();
 loadExtensionCatalog();
+loadExtensionAnalysis();
 setInterval(load, 90_000);
 setInterval(loadLive, 30_000);
 setInterval(loadExtensionCatalog, 90_000);
+setInterval(loadExtensionAnalysis, 90_000);

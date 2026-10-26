@@ -27,16 +27,46 @@
     </section>
     <section class="extension" aria-labelledby="extension-title">
       <div class="extension-lead">
-        <div><span class="section-kicker">QUESTÃO ABERTA / 25 OUT 2026</span><h2 id="extension-title">E se a votação tivesse<br><em>terminado às 17h?</em></h2><p>Boletins de urna, logs e o limite do que os dados permitem afirmar sobre a janela até 19h (horário de Brasília).</p></div>
+        <div><span class="section-kicker">QUESTÃO ABERTA / 25 OUT 2026</span><h2 id="extension-title">E se a votação tivesse<br><em>terminado às 17h?</em></h2><p>Contamos nos logs oficiais das urnas os votos concluídos depois das 17h (horário de Brasília) e estimamos o resultado sem eles.</p></div>
         <button id="extension-toggle" type="button" aria-expanded="false" aria-controls="extension-panel">Explorar a questão <span aria-hidden="true">↗</span></button>
       </div>
       <div id="extension-panel" hidden>
-        <div class="extension-verdict"><span>RESPOSTA HONESTA</span><strong>Não há vencedor contrafactual demonstrado.</strong><p>Os boletins somam votos por seção, mas não indicam a hora de cada escolha. Os logs mostram quando uma votação terminou, sem revelar o candidato. Transmitir um boletim depois das 17h tampouco significa que todos os votos daquela urna foram dados depois das 17h.</p></div>
+        <div class="extension-verdict"><span id="extension-verdict-label">RESPOSTA ATÉ AGORA</span><strong id="extension-verdict-answer">Ainda sem resposta para o Brasil inteiro.</strong><p>Os boletins somam votos por seção, mas não indicam a hora de cada escolha. Os logs mostram quando uma votação terminou, sem revelar o candidato. Transmitir um boletim depois das 17h tampouco significa que todos os votos daquela urna foram dados depois das 17h.</p></div>
         <div class="extension-grid">
           <div class="extension-metric"><span>01 / RESULTADO OBSERVADO</span><strong id="extension-margin">Aguardando dados</strong><p id="extension-margin-note">Margem entre os finalistas na totalização nacional do TSE.</p></div>
-          <div class="extension-metric"><span>02 / VOTOS CONCLUÍDOS APÓS 17H</span><strong>Sem total nacional verificado</strong><p>Os logs individuais estão disponíveis no portal do TSE. Somá-los exige conferir cobertura, urnas de contingência e horário local de cada seção; uma amostra não representa o país.</p></div>
-          <div class="extension-metric"><span>03 / VOTOS POR CANDIDATO NESSA JANELA</span><strong>Não identificáveis</strong><p>Horários de votação e escolhas não podem ser ligados voto a voto. Não atribuímos a nenhum candidato os votos registrados entre 17h e 19h.</p></div>
+          <div class="extension-metric"><span>02 / VOTOS CONCLUÍDOS APÓS 17H</span><strong id="extension-late">Aguardando a coleta</strong><p id="extension-late-note">Soma dos logs das seções cujo total bate com o BU. O detalhamento está abaixo.</p></div>
+          <div class="extension-metric"><span>03 / VOTOS POR CANDIDATO NESSA JANELA</span><strong>Só por estimativa</strong><p>O log registra a hora de cada voto, mas não o candidato. Por isso dividimos os votos tardios de cada seção na mesma proporção do BU dela, com brancos e nulos.</p></div>
         </div>
+        <section class="extension-analysis" aria-labelledby="analysis-title">
+          <span class="section-kicker">COLETA NACIONAL / SEÇÃO POR SEÇÃO</span>
+          <h3 id="analysis-title">Logs conferidos com o boletim</h3>
+          <p id="analysis-status" role="status">Carregando as contagens de logs e boletins...</p>
+          <div id="analysis-content" hidden>
+            <div class="analysis-progress">
+              <div class="progress-track" id="analysis-progress" role="progressbar" aria-label="Seções processadas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="analysis-progress-bar"></div></div>
+              <p id="analysis-progress-text"></p>
+            </div>
+            <div class="analysis-confidence">
+              <strong id="analysis-confidence-answer"></strong>
+              <p id="analysis-confidence-detail"></p>
+            </div>
+            <div class="analysis-headline"><strong id="analysis-window"></strong><span>votos concluídos entre 17h e 19h (horário de Brasília) nas seções já processadas</span></div>
+            <p id="analysis-coverage"></p>
+            <p id="analysis-candidates"></p>
+            <div class="analysis-table-wrap" tabindex="0" role="region" aria-label="Comparação de votos; role horizontalmente em telas pequenas">
+              <table class="analysis-table"><caption>A primeira linha é o Brasil inteiro; as outras duas, só as seções reconciliadas.</caption><thead><tr><th scope="col">Base de comparação</th><th scope="col">Lula</th><th scope="col">Flávio Bolsonaro</th></tr></thead><tbody id="analysis-comparison"></tbody></table>
+            </div>
+            <p id="analysis-verdict"></p>
+            <p id="analysis-bounds"></p>
+            <details class="analysis-details"><summary>Cobertura por UF e horário do último voto</summary>
+              <div class="analysis-table-wrap" tabindex="0" role="region" aria-label="Cobertura por UF; role horizontalmente em telas pequenas"><table class="analysis-table"><caption>Seções reconciliadas sobre seções com arquivos próprios no catálogo do TSE. Os votos contam só as reconciliadas.</caption><thead><tr><th scope="col">UF</th><th scope="col">Seções reconciliadas</th><th scope="col">Votos até 17h</th><th scope="col">Entre 17h e 19h</th><th scope="col">Depois das 19h</th></tr></thead><tbody id="analysis-areas"></tbody></table></div>
+              <p id="analysis-histogram-note"></p>
+              <div class="analysis-table-wrap" tabindex="0" role="region" aria-label="Seções por hora do último voto"><table class="analysis-table"><caption>Seções pela hora do último voto registrado no log, em horário de Brasília. Uma urna pode ter ficado aberta depois do último voto.</caption><thead><tr><th scope="col">Hora do último voto</th><th scope="col">Seções</th></tr></thead><tbody id="analysis-histogram"></tbody></table></div>
+            </details>
+            <p class="analysis-method">Como calculamos: cada seção entra na soma só quando o número de votos do log é igual ao total do BU. Os votos depois das 17h de cada seção são divididos na proporção do BU dela, com brancos e nulos. Isso supõe que quem votou tarde escolheu como o resto da seção, e por isso os números por candidato são estimativas. O cenário até 17h retira todos os votos depois de 17:00:00, inclusive os depois das 19h.</p>
+            <p class="analysis-method">O relógio de cada urna está no fuso local. Convertemos para o horário de Brasília por UF, com exceções para os municípios do oeste do Amazonas e Fernando de Noronha. As seções do exterior ficam fora porque ainda não validamos o fuso de cada país. Seções com mais de um conjunto de arquivos, ajuste ou retrocesso de relógio, ou log diferente do BU também ficam fora. A hora registrada é a da confirmação do voto, não a da chegada à fila. <a href="./data/extension-analysis.json">Baixar os agregados</a> · <a href="https://resultados.tse.jus.br/oficial/app/index.html#/eleicao/6258/uf/br/cargo/1/vis/nominal/dados-de-urna/log-da-urna" target="_blank" rel="noopener noreferrer">Logs oficiais do TSE</a> · <a href="https://speedurna.furious.pro/sobre" target="_blank" rel="noopener noreferrer">Sobre os horários nos logs (Speedurna)</a></p>
+          </div>
+        </section>
         <div class="extension-method"><div><strong>Uma seção, não o Brasil</strong><p>Na seção <a href="https://resultados.tse.jus.br/oficial/app/index.html#/eleicao/6258/uf/pb/mu/20516/zn/0064/cargo/1/vis/nominal/se/0427/dados-de-urna/log-da-urna" target="_blank" rel="noopener noreferrer">0427, zona 0064, João Pessoa/PB ↗</a>, o log oficial registra 333 votações computadas em 25/10, <strong>uma às 17h01</strong> pelo relógio da urna. Isso não revela o candidato desse voto e não é uma estimativa nacional. Se o total nacional de votações após 17h for menor que a margem <em>final</em>, excluí-las não mudaria o vencedor; caso contrário, faltaria saber a distribuição por candidato.</p></div><div><strong>Consultar boletins oficiais</strong><p id="extension-bu-status" role="status">Verificando o catálogo de boletins do TSE...</p><p>O catálogo de arquivos por UF é checado a cada ciclo de publicação; boletins individuais já podem ser consultados pelo portal, mesmo quando o catálogo de downloads em massa ainda não os lista.</p><a href="https://resultados.tse.jus.br/oficial/app/index.html#/eleicao/6258/uf/pb/mu/20516/zn/0064/cargo/1/vis/nominal/se/0427/dados-de-urna/boletim-de-urna" target="_blank" rel="noopener noreferrer">Boletim da seção 0427 ↗</a><br><a id="extension-dataset-link" href="https://dadosabertos.tse.jus.br/dataset/resultados-2026-boletim-de-urna" target="_blank" rel="noopener noreferrer">Catálogo de downloads por UF ↗</a><div id="extension-files" class="extension-files"></div></div></div>
         <p class="extension-footnote">Horário de encerramento da votação, atendimento de quem já estava na fila e horário de transmissão do boletim são eventos diferentes. Um boletim transmitido depois das 17h não identifica votos feitos entre 17h e 19h.</p>
       </div>
