@@ -2,8 +2,6 @@ name: Collect and publish election data
 on:
   push:
     branches: [main]
-    # The local urn-log collector pushes this file every 15 min; the next scheduled run deploys it.
-    paths-ignore: ['data/extension-analysis.json']
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
